@@ -1,0 +1,38 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Herramientas de desarrollo
+.vscode/
+.idea/
+.pytest_cache/
+.mypy_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Logs y temporales
+*.log
+*.tmp
+
+# Archivos generados de forma local
+*.bak
+*.swp
+
+# Datos procesados que puedan generarse a futuro
+# Mantener data/raw/estudiantes_200.csv en el repositorio porque forma parte
+# del ejercicio académico y es pequeño.
+/data/processed/
+
+# Salidas experimentales
+/reports/generated/
