@@ -178,3 +178,6 @@ git push -u origin feature/nombre-de-la-tarea
 * Miguel Ángel Carrillo Hernández: Investigador / QA
 * Jesús Eduardo Vazquez Rodriguez: Analista / apoyo de QA
 * Maria Guadalupe Herrera Rafael: Oradora principal
+
+## Rama Ary
+* Esta es la rama en la que trabajare
