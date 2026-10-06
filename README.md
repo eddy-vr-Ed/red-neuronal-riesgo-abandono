@@ -178,3 +178,59 @@ git push -u origin feature/nombre-de-la-tarea
 * Miguel Ángel Carrillo Hernández: Investigador / QA
 * Jesús Eduardo Vazquez Rodriguez: Analista / apoyo de QA
 * Maria Guadalupe Herrera Rafael: Oradora principal
+
+## Fuentes de consulta
+
+Durante la investigación y desarrollo del proyecto se consultaron las siguientes fuentes:
+
+### Redes neuronales
+
+* Video de consulta sobre redes neuronales: https://www.youtube.com/watch?v=M6oDiCQCins
+* Video de consulta sobre redes neuronales: https://www.youtube.com/watch?v=6vwfT3-mBBw
+* Video de consulta sobre redes neuronales: https://www.youtube.com/watch?v=xSjlvulOiQY
+
+### Aplicación de redes neuronales en la industria
+
+* Amazon Web Services (AWS). *¿Qué es el OCR? - Explicación del reconocimiento óptico de caracteres*. https://aws.amazon.com/es/what-is/ocr/
+* Fuente de consulta proporcionada durante la investigación: https://share.google/AFVKok3mHEx0YQNBS
+
+### Tecnologías y librerías utilizadas
+
+* BBVA. *TensorFlow: la biblioteca de código abierto de Google para acelerar la adopción de la IA*. https://www.bbva.com/es/innovacion/tensorflow-la-biblioteca-de-codigo-abierto-de-google-para-acelerar-la-adopcion-de-la-ia/
+* ENAE. *NumPy*. https://www.enae.es/blog/numpy
+* NVIDIA. *Pandas Python*. https://www.nvidia.com/en-us/glossary/pandas-python/
+* Scikit-learn. Sitio oficial. https://scikit-learn.org/stable/
+* SciPy. Sitio oficial. https://scipy.org/es/faq/
+* Liora. *Joblib: What is this Python library and how do I use it?* https://liora.io/en/joblib-what-is-this-python-library-how-do-i-use-it
+
+## Licencias y uso de recursos
+
+* El código fuente de este proyecto fue desarrollado por los integrantes del equipo con fines académicos y educativos.
+* El archivo `data/raw/estudiantes_200.csv` contiene datos sintéticos generados para este proyecto. No contiene información personal ni datos reales de estudiantes.
+* Las librerías y herramientas utilizadas en el proyecto pertenecen a sus respectivos autores y organizaciones, y se utilizan de acuerdo con las licencias correspondientes:
+
+  * TensorFlow / Keras
+  * NumPy
+  * Pandas
+  * Scikit-learn
+  * SciPy
+  * Joblib
+* Las fuentes de consulta utilizadas para la investigación se encuentran indicadas en la sección **Fuentes de consulta** de este README.
+
+## Uso de herramientas de inteligencia artificial
+
+Durante el desarrollo de este proyecto se utilizaron herramientas de inteligencia artificial como apoyo académico y técnico.
+
+La inteligencia artificial se utilizó principalmente para:
+
+* Resolver dudas relacionadas con Python, TensorFlow y las librerías utilizadas.
+* Apoyar en la explicación de conceptos sobre redes neuronales.
+* Proponer y revisar fragmentos de código.
+* Apoyar en la identificación y solución de errores durante las pruebas.
+* Orientar sobre la organización y documentación del proyecto.
+
+Las decisiones sobre la estructura del proyecto, los datos utilizados, la preparación y división del conjunto de datos, la arquitectura del modelo, las pruebas y la integración final fueron revisadas y realizadas por los integrantes del equipo.
+
+El conjunto de datos utilizado en el prototipo es sintético y fue generado específicamente con fines educativos. El modelo y sus resultados fueron ejecutados y comprobados por el equipo antes de integrarlos al proyecto.
+
+La herramienta de inteligencia artificial se utilizó como apoyo durante el proceso de aprendizaje y desarrollo, y no como sustituto de la revisión y participación de los integrantes del equipo.
