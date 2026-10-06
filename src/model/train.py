@@ -47,15 +47,53 @@ def main() -> None:
     modelo.summary()
 
     print("\n===== ENTRENANDO MODELO =====")
-    modelo.fit(
+    # Guardamos el "history" para graficar las Curvas de Aprendizaje.
+    # validation_split aparta un 20% de datos como examen de prueba.
+    history = modelo.fit(
         X_entrenamiento,
         y_entrenamiento,
+        validation_split=0.2,
         epochs=100,
         batch_size=16,
         verbose=1,
     )
 
     modelo.save(MODEL_FILE)
+    
+    print("\n===== GENERANDO GRÁFICA DE APRENDIZAJE =====")
+    try:
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(10, 4))
+        
+        # Gráfica de Precisión
+        plt.subplot(1, 2, 1)
+        plt.plot(history.history['accuracy'], label='Entrenamiento')
+        plt.plot(history.history['val_accuracy'], label='Validación')
+        plt.title('Precisión (Accuracy) de la Red Neuronal')
+        plt.xlabel('Época (Iteración)')
+        plt.ylabel('Precisión')
+        plt.legend()
+
+        # Gráfica de Pérdida
+        plt.subplot(1, 2, 2)
+        plt.plot(history.history['loss'], label='Entrenamiento')
+        plt.plot(history.history['val_loss'], label='Validación')
+        plt.title('Errores (Loss) de la Red Neuronal')
+        plt.xlabel('Época (Iteración)')
+        plt.ylabel('Pérdida')
+        plt.legend()
+
+        plt.tight_layout()
+        plot_path = MODELS_DIR / "curvas_aprendizaje.png"
+        plt.savefig(plot_path)
+        print(f"Gráfica guardada exitosamente en: {plot_path}")
+    except ImportError:
+        print("La librería matplotlib no está instalada, se omite la gráfica.")
+
+    print("\n===== DEMOSTRACIÓN DIDÁCTICA: PESOS SINÁPTICOS ====== ")
+    pesos, sesgos = modelo.layers[0].get_weights()
+    print("La red ajustó internamente estos pesos sin que nosotros los programáramos directamente:")
+    print(f"Pesos de la primera neurona: {pesos[:, 0].flatten().round(4)}")
 
     perdida, precision = modelo.evaluate(X_prueba, y_prueba, verbose=0)
     print("\n===== RESULTADOS =====")

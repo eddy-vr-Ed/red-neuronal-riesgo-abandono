@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redes Nuronales</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <!-- Background Elements -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <span class="icon">⬡</span>
+                <h1>REDES NEURONALES <span></span></h1>
+            </div>
+            <p>Sistema de clasificación de Riego Académico mediante Redes Nuronales</p>
+        </header>
+
+        {% if not modelo_listo %}
+        <div class="error-banner">
+            ⚠️ El modelo (modelo_riesgo.keras) no se encontró. Necesitas entrenarlo primero ejecutando
+            <code>python -m src.model.train</code>.
+        </div>
+        {% endif %}
+
+        <main class="glass-panel">
+            <div class="input-section">
+                <h2>Cargar Datos del Alumno</h2>
+                <form id="prediction-form">
+                    <div class="input-group">
+                        <label for="horas">Horas de Estudio (1-30)</label>
+                        <input type="number" id="horas" name="horas_estudio" min="1" max="30" step="0.5" required
+                            placeholder="Ej: 15">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="asistencia">Asistencia % (50-100)</label>
+                        <input type="number" id="asistencia" name="asistencia" min="50" max="100" step="0.1" required
+                            placeholder="Ej: 85.5">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="promedio">Promedio Académico (5-10)</label>
+                        <input type="number" id="promedio" name="promedio" min="5" max="10" step="0.1" required
+                            placeholder="Ej: 8.5">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="reprobadas">Materias Reprobadas (0-6)</label>
+                        <input type="number" id="reprobadas" name="materias_reprobadas" min="0" max="6" step="1"
+                            required placeholder="Ej: 1">
+                    </div>
+
+                    <button type="submit" class="btn-predict" id="btn-submit" {% if not modelo_listo %}disabled{% endif
+                        %}>
+                        <span>Iniciar Inferencia Neural</span>
+                        <div class="loader hidden" id="spinner"></div>
+                    </button>
+                </form>
+            </div>
+
+            <div class="result-section">
+                <h2>Capa de Salida (Softmax)</h2>
+
+                <div class="status-card" id="status-card">
+                    <div class="status-icon" id="status-icon">?</div>
+                    <div class="status-text">
+                        <h3 id="riesgo-label">Esperando datos...</h3>
+                        <p>Nivel de Riesgo</p>
+                    </div>
+                </div>
+
+                <div class="probabilities">
+                    <div class="prob-row">
+                        <span>Probabilidad BAJO</span>
+                        <span id="prob-bajo-text">--%</span>
+                    </div>
+                    <div class="bar-container">
+                        <div class="bar fill-bajo" id="bar-bajo" style="width: 0%"></div>
+                    </div>
+
+                    <div class="prob-row mt-3">
+                        <span>Probabilidad ALTO</span>
+                        <span id="prob-alto-text">--%</span>
+                    </div>
+                    <div class="bar-container">
+                        <div class="bar fill-alto" id="bar-alto" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="neural-hint">
+                    <p><i></i></p>
+                </div>
+
+                <button type="button" class="btn-secondary" id="btn-graficas">
+                    👁️ Ver Gráficas de Aprendizaje
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal para las gráficas -->
+    <div id="grafica-modal" class="modal hidden">
+        <div class="modal-content glass-panel">
+            <span class="close-btn" id="close-modal">&times;</span>
+            <h2>Curvas de Aprendizaje Neural</h2>
+            <p>Así aprendió nuestro modelo durante el entrenamiento (Épocas).</p>
+            <img src="{{ url_for('grafica') }}" alt="Gráfica de Aprendizaje" class="grafica-img">
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>
