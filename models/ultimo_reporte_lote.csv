@@ -1,0 +1,8 @@
+grado,grupo,especialidad,horas_semana_totales,asistencia_semanal,promedio,materias_reprobadas,riesgo_predicho,prob_alto_pct
+1,A,general,35.0,88.5,8.5,0,BAJO,0.0
+1,B,general,35.0,55.0,5.8,2,ALTO,100.0
+4,A,general,35.0,92.0,9.0,0,BAJO,0.0
+7,C,general,35.0,60.0,6.2,1,BAJO,46.2
+10,A,redes,25.0,30.0,5.1,2,ALTO,100.0
+10,A,software,25.0,94.0,9.5,0,BAJO,0.0
+10,B,software,25.0,70.0,7.2,1,BAJO,23.9

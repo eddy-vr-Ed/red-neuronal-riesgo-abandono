@@ -1,8 +1,11 @@
-"""Inspecciona y valida rápidamente el dataset."""
+"""Inspecciona y valida rápidamente el dataset por grado.
+
+Versión 2.0 — Muestra estadísticas por grado y grupo.
+"""
 
 import pandas as pd
 
-from src.config import DATASET_FILE, FEATURES, TARGET
+from src.config import DATASET_FILE, FEATURES_RAW, NUMERIC_COLS, TARGET
 
 
 def main() -> None:
@@ -15,24 +18,28 @@ def main() -> None:
     print(datos.columns.tolist())
 
     print("\n===== PRIMEROS 10 REGISTROS =====")
-    print(datos.head(10))
+    print(datos.head(10).to_string(index=False))
 
-    print("\n===== ÚLTIMOS 10 REGISTROS =====")
-    print(datos.tail(10))
+    print("\n===== DISTRIBUCIÓN POR GRADO Y GRUPO =====")
+    tabla = datos.groupby(["grado", "grupo", "especialidad"]).agg(
+        total=("riesgo_abandono", "count"),
+        riesgo_alto=("riesgo_abandono", "sum"),
+        promedio_mean=("promedio", "mean"),
+        asistencia_mean=("asistencia_semanal", "mean"),
+    ).reset_index()
+    tabla["riesgo_pct"] = (tabla["riesgo_alto"] / tabla["total"] * 100).round(1)
+    print(tabla.to_string(index=False))
 
-    print("\n===== VALORES MÍNIMOS =====")
-    print(datos.min(numeric_only=True))
+    print("\n===== ESTADÍSTICAS NUMÉRICAS =====")
+    print(datos[NUMERIC_COLS].describe().round(2))
 
-    print("\n===== VALORES MÁXIMOS =====")
-    print(datos.max(numeric_only=True))
-
-    print("\n===== DISTRIBUCIÓN DEL RIESGO =====")
-    print(datos[TARGET].value_counts())
+    print("\n===== DISTRIBUCIÓN GLOBAL DEL RIESGO =====")
+    print(datos[TARGET].value_counts().rename({0: "BAJO", 1: "ALTO"}))
 
     print("\n===== VALORES NULOS =====")
     print(datos.isnull().sum())
 
-    missing_columns = [column for column in FEATURES + [TARGET] if column not in datos.columns]
+    missing_columns = [c for c in FEATURES_RAW + [TARGET] if c not in datos.columns]
     if missing_columns:
         raise ValueError(f"Faltan columnas requeridas: {missing_columns}")
 
