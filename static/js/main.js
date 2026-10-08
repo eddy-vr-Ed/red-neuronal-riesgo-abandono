@@ -372,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${g.grupo}</td>
                 <td>${g.especialidad.toUpperCase()}</td>
                 <td>${g.total}</td>
-                <td><strong style="color: var(--alto-color)">${g.en_riesgo}</strong></td>
+                <td><strong style="color: var(--color-alto)">${g.en_riesgo}</strong></td>
                 <td>${g.pct_riesgo}%</td>
                 <td>
                     <span class="${esCritico ? 'badge-alerta-critica' : 'badge-alerta-estable'}">

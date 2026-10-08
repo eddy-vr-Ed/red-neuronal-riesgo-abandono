@@ -5,7 +5,8 @@ import numpy as np
 import pandas as pd
 from tensorflow import keras
 
-from src.config import CATEGORICAL_COLS, ENCODERS_FILE, MODEL_FILE, NUMERIC_COLS, SCALER_FILE
+from src.config import ENCODERS_FILE, MODEL_FILE, SCALER_FILE
+from src.prediction.preprocessing import preparar_matriz_modelo
 
 
 def solicitar_float(mensaje: str, minimo: float, maximo: float) -> float:
@@ -40,10 +41,7 @@ def solicitar_int(mensaje: str, minimo: int, maximo: int) -> int:
 
 def predecir_estudiante(modelo, escalador, encoder, datos_estudiante: pd.DataFrame) -> np.ndarray:
     """Aplica el mismo preprocesamiento de Flask y devuelve probabilidades."""
-    cat_encoded = encoder.transform(datos_estudiante[CATEGORICAL_COLS])
-    num_raw = datos_estudiante[NUMERIC_COLS].values
-    datos_combinados = np.hstack([cat_encoded, num_raw])
-    datos_escalados = escalador.transform(datos_combinados)
+    datos_escalados = preparar_matriz_modelo(datos_estudiante, encoder, escalador)
     return modelo.predict(datos_escalados, verbose=0)
 
 

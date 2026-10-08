@@ -1,8 +1,6 @@
 """Servidor Web con Flask para exponer la Red Neuronal v2.0."""
 
 import json
-import os
-from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
@@ -13,15 +11,22 @@ app = Flask(__name__)
 
 # Definimos las rutas a los modelos entrenados
 from src.config import (
-    CATEGORICAL_COLS,
     ENCODERS_FILE,
     MODEL_FILE,
     MODELS_DIR,
-    NUMERIC_COLS,
     SCALER_FILE,
 )
+from src.prediction.preprocessing import preparar_matriz_modelo
 
 HISTORY_FILE = MODELS_DIR / "training_history.json"
+PREDICTION_REQUIRED_FIELDS = [
+    "grado",
+    "grupo",
+    "horas_semana_totales",
+    "asistencia_semanal",
+    "promedio",
+    "materias_reprobadas",
+]
 
 # Cargamos el modelo y los preprocesadores
 try:
@@ -33,6 +38,48 @@ except Exception as e:
     print(f"Error cargando el modelo o preprocesadores: {e}")
     print("Asegúrate de ejecutar primero: python -m src.model.train")
     MODELO_CARGADO = False
+
+
+def _datos_estudiante_desde_json(data: dict) -> pd.DataFrame:
+    """Valida y convierte el JSON de prediccion individual a un DataFrame."""
+    if not isinstance(data, dict):
+        raise ValueError("La solicitud debe enviarse en formato JSON.")
+
+    faltantes = [campo for campo in PREDICTION_REQUIRED_FIELDS if data.get(campo) in (None, "")]
+    if faltantes:
+        raise ValueError(f"Faltan campos obligatorios: {', '.join(faltantes)}.")
+
+    try:
+        grado = int(data["grado"])
+        grupo = str(data["grupo"]).strip().upper()
+        especialidad = str(data.get("especialidad") or "general").strip().lower()
+        horas = float(data["horas_semana_totales"])
+        asistencia = float(data["asistencia_semanal"])
+        promedio = float(data["promedio"])
+        materias_reprobadas = int(data["materias_reprobadas"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Los campos numericos deben tener valores validos.") from exc
+
+    if grado not in {1, 4, 7, 10}:
+        raise ValueError("El grado debe ser 1, 4, 7 o 10.")
+    if not grupo:
+        raise ValueError("El grupo es obligatorio.")
+    if not 0 <= asistencia <= 100:
+        raise ValueError("La asistencia semanal debe estar entre 0 y 100.")
+    if not 0 <= promedio <= 10:
+        raise ValueError("El promedio debe estar entre 0 y 10.")
+    if materias_reprobadas < 0:
+        raise ValueError("Las materias reprobadas no pueden ser negativas.")
+
+    return pd.DataFrame([{
+        "grado": grado,
+        "grupo": grupo,
+        "especialidad": especialidad,
+        "horas_semana_totales": horas,
+        "asistencia_semanal": asistencia,
+        "promedio": promedio,
+        "materias_reprobadas": materias_reprobadas,
+    }])
 
 
 @app.route("/")
@@ -63,48 +110,20 @@ def grafica():
 @app.route("/predecir", methods=["POST"])
 def predecir():
     """Endpoint de la API que recibe datos de la web y usa la Red Neuronal."""
+    global escalador, modelo
+
     if not MODELO_CARGADO:
         return jsonify({"error": "El modelo no ha sido entrenado aún."}), 500
 
     try:
-        # Obtenemos los datos del formulario web
-        data = request.json
-        grado = int(data.get("grado", 1))
-        grupo = str(data.get("grupo", "A"))
-        especialidad = str(data.get("especialidad", "general"))
-        horas = float(data.get("horas_semana_totales") or 30)
-        asistencia = float(data.get("asistencia_semanal") or 0)
-        promedio = float(data.get("promedio") or 0)
-        materias_reprobadas = int(data.get("materias_reprobadas") or 0)
-
-        # Construimos el DataFrame para los encoders (variables crudas)
-        datos_estudiante = pd.DataFrame(
-            [{
-                "grado": grado,
-                "grupo": grupo,
-                "especialidad": especialidad,
-                "horas_semana_totales": horas,
-                "asistencia_semanal": asistencia,
-                "promedio": promedio,
-                "materias_reprobadas": materias_reprobadas,
-            }],
-        )
-
-        # 1. Codificación One-Hot de categóricas
-        cat_encoded = encoder.transform(datos_estudiante[CATEGORICAL_COLS])
-        
-        # 2. Combinación con numéricas
-        num_raw = datos_estudiante[NUMERIC_COLS].values
-        X_combined = np.hstack([cat_encoded, num_raw])
+        datos_estudiante = _datos_estudiante_desde_json(request.get_json(silent=True))
+        X_scaled = preparar_matriz_modelo(datos_estudiante, encoder, escalador)
 
         # Si el escalador en memoria no coincide con las dimensiones de entrada, recargar desde disco
-        global escalador, modelo
-        if getattr(escalador, "n_features_in_", None) != X_combined.shape[1]:
+        if getattr(escalador, "n_features_in_", None) != X_scaled.shape[1]:
             escalador = joblib.load(SCALER_FILE)
             modelo = keras.models.load_model(MODEL_FILE)
-
-        # 3. Normalización (Estandarización)
-        X_scaled = escalador.transform(X_combined)
+            X_scaled = preparar_matriz_modelo(datos_estudiante, encoder, escalador)
 
         # 4. Predicción con la Red Neuronal (Forward Propagation)
         probabilidades = modelo.predict(X_scaled, verbose=0)
@@ -124,14 +143,12 @@ def predecir():
             "probabilidad_bajo": f"{prob_bajo:.1f}%",
             "probabilidad_alto": f"{prob_alto:.1f}%",
             "pesos_ejemplo": primeros_pesos,
-            "debug": {
-                "features_entrada": int(X_scaled.shape[1]),
-                "cat_encoded_shape": int(cat_encoded.shape[1])
-            }
         })
 
-    except Exception as e:
+    except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    except Exception:
+        return jsonify({"error": "No se pudo procesar la prediccion."}), 400
 
 
 @app.route("/retroalimentar", methods=["POST"])
@@ -162,10 +179,7 @@ def retroalimentar():
             "materias_reprobadas": materias_reprobadas,
         }])
 
-        cat_encoded = encoder.transform(datos_estudiante[CATEGORICAL_COLS])
-        num_raw = datos_estudiante[NUMERIC_COLS].values
-        X_combined = np.hstack([cat_encoded, num_raw])
-        X_scaled = escalador.transform(X_combined)
+        X_scaled = preparar_matriz_modelo(datos_estudiante, encoder, escalador)
         y_real = np.array([etiqueta_real])
 
         pesos_antes = modelo.layers[0].get_weights()[0][:4, 0].round(4).tolist()
@@ -212,6 +226,9 @@ def predecir_lote():
         else:
             return jsonify({"error": "Formato no válido. Sube un archivo .xlsx o .csv"}), 400
 
+        if df.empty:
+            return jsonify({"error": "El archivo no contiene registros para procesar."}), 400
+
         # Normalizamos nombres de columnas (minúsculas y sin acentos)
         df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
 
@@ -248,10 +265,7 @@ def predecir_lote():
         df["materias_reprobadas"] = df["materias_reprobadas"].astype(int)
 
         # Preprocesamiento por lotes
-        cat_encoded = encoder.transform(df[CATEGORICAL_COLS])
-        num_raw = df[NUMERIC_COLS].values
-        X_combined = np.hstack([cat_encoded, num_raw])
-        X_scaled = escalador.transform(X_combined)
+        X_scaled = preparar_matriz_modelo(df, encoder, escalador)
 
         # Predicción masiva
         probabilidades = modelo.predict(X_scaled, verbose=0)
@@ -293,10 +307,12 @@ def predecir_lote():
 
         return jsonify(resultado_json)
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Error procesando lote: {str(e)}"}), 500
+    except pd.errors.EmptyDataError:
+        return jsonify({"error": "El archivo esta vacio o no tiene columnas."}), 400
+    except ValueError as e:
+        return jsonify({"error": f"Datos invalidos en el archivo: {str(e)}"}), 400
+    except Exception:
+        return jsonify({"error": "Error procesando el archivo por lote."}), 500
 
 
 @app.route("/descargar_plantilla")
@@ -340,4 +356,3 @@ def descargar_reporte():
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
-
