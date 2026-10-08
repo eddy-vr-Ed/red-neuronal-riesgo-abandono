@@ -1,5 +1,6 @@
 """Pruebas básicas que no requieren TensorFlow."""
 
+from io import BytesIO
 import unittest
 
 import pandas as pd
@@ -55,6 +56,25 @@ class TestFlaskApp(unittest.TestCase):
         self.assertIn(data["riesgo"], {"BAJO", "ALTO"})
         self.assertIn("probabilidad_bajo", data)
         self.assertIn("probabilidad_alto", data)
+
+    def test_batch_prediction_rejects_empty_required_values(self):
+        csv_content = (
+            "grado,grupo,especialidad,horas_semana_totales,asistencia_semanal,"
+            "promedio,materias_reprobadas,riesgo_predicho,prob_alto_pct\n"
+            "1,A,general,35,,8.5,,BAJO,12.3\n"
+        )
+        response = self.client.post(
+            "/predecir_lote",
+            data={"archivo": (BytesIO(csv_content.encode("utf-8")), "ultimo_reporte_lote.csv")},
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        error = response.get_json()["error"]
+        self.assertIn("valores vacios", error)
+        self.assertIn("asistencia_semanal", error)
+        self.assertIn("materias_reprobadas", error)
+        self.assertNotIn("Cannot convert non-finite values", error)
 
 
 if __name__ == "__main__":

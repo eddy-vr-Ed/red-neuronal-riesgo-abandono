@@ -27,6 +27,15 @@ PREDICTION_REQUIRED_FIELDS = [
     "promedio",
     "materias_reprobadas",
 ]
+BATCH_REQUIRED_COLUMNS = [
+    "grado",
+    "grupo",
+    "especialidad",
+    "horas_semana_totales",
+    "asistencia_semanal",
+    "promedio",
+    "materias_reprobadas",
+]
 
 # Cargamos el modelo y los preprocesadores
 try:
@@ -80,6 +89,56 @@ def _datos_estudiante_desde_json(data: dict) -> pd.DataFrame:
         "promedio": promedio,
         "materias_reprobadas": materias_reprobadas,
     }])
+
+
+def _validar_y_preparar_lote(df: pd.DataFrame) -> pd.DataFrame:
+    """Valida un archivo por lote y conserva solo las columnas usadas por el modelo."""
+    df = df.copy()
+    df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
+
+    faltantes = [c for c in BATCH_REQUIRED_COLUMNS if c not in df.columns]
+    if faltantes:
+        raise ValueError(f"Faltan columnas obligatorias: {', '.join(faltantes)}.")
+
+    df = df[BATCH_REQUIRED_COLUMNS].copy()
+    columnas_con_vacios = [
+        col for col in BATCH_REQUIRED_COLUMNS
+        if df[col].isna().any() or (df[col].astype(str).str.strip() == "").any()
+    ]
+    if columnas_con_vacios:
+        raise ValueError(
+            "El archivo contiene valores vacios en las columnas: "
+            f"{', '.join(columnas_con_vacios)}. "
+            "Complete esos datos antes de ejecutar el diagnostico."
+        )
+
+    numeric_cols = ["grado", "horas_semana_totales", "asistencia_semanal", "promedio", "materias_reprobadas"]
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    columnas_invalidas = [
+        col for col in numeric_cols
+        if df[col].isna().any() or not np.isfinite(df[col]).all()
+    ]
+    if columnas_invalidas:
+        raise ValueError(
+            "El archivo contiene datos numericos invalidos en las columnas: "
+            f"{', '.join(columnas_invalidas)}."
+        )
+
+    df["grado"] = df["grado"].astype(int)
+    df["grupo"] = df["grupo"].astype(str).str.strip().str.upper()
+    df["especialidad"] = df["especialidad"].astype(str).str.strip().str.lower().replace({
+        "ric": "redes",
+        "dgs": "software",
+        "dsm": "general",
+    })
+    df["horas_semana_totales"] = df["horas_semana_totales"].astype(float)
+    df["asistencia_semanal"] = df["asistencia_semanal"].astype(float)
+    df["promedio"] = df["promedio"].astype(float)
+    df["materias_reprobadas"] = df["materias_reprobadas"].astype(int)
+
+    return df
 
 
 @app.route("/")
@@ -229,40 +288,7 @@ def predecir_lote():
         if df.empty:
             return jsonify({"error": "El archivo no contiene registros para procesar."}), 400
 
-        # Normalizamos nombres de columnas (minúsculas y sin acentos)
-        df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
-
-        # Validamos columnas requeridas
-        cols_requeridas = ["grado", "grupo", "asistencia_semanal", "promedio"]
-        faltantes = [c for c in cols_requeridas if c not in df.columns]
-        if faltantes:
-            return jsonify({"error": f"Faltan columnas obligatorias: {faltantes}"}), 400
-
-        # Rellenamos columnas opcionales o faltantes
-        if "especialidad" not in df.columns:
-            df["especialidad"] = "general"
-        else:
-            df["especialidad"] = df["especialidad"].fillna("general").astype(str).str.lower()
-            df["especialidad"] = df["especialidad"].replace({
-                "ric": "redes",
-                "dgs": "software",
-                "dsm": "general"
-            })
-
-        if "horas_semana_totales" not in df.columns:
-            # Asignamos según grado si no vienen especificadas
-            df["horas_semana_totales"] = df["grado"].apply(lambda g: 25 if int(g) == 10 else 35)
-
-        if "materias_reprobadas" not in df.columns:
-            df["materias_reprobadas"] = 0
-
-        # Aseguramos tipos
-        df["grado"] = df["grado"].astype(int)
-        df["grupo"] = df["grupo"].astype(str).str.upper()
-        df["horas_semana_totales"] = df["horas_semana_totales"].astype(float)
-        df["asistencia_semanal"] = df["asistencia_semanal"].astype(float)
-        df["promedio"] = df["promedio"].astype(float)
-        df["materias_reprobadas"] = df["materias_reprobadas"].astype(int)
+        df = _validar_y_preparar_lote(df)
 
         # Preprocesamiento por lotes
         X_scaled = preparar_matriz_modelo(df, encoder, escalador)
@@ -310,7 +336,7 @@ def predecir_lote():
     except pd.errors.EmptyDataError:
         return jsonify({"error": "El archivo esta vacio o no tiene columnas."}), 400
     except ValueError as e:
-        return jsonify({"error": f"Datos invalidos en el archivo: {str(e)}"}), 400
+        return jsonify({"error": str(e)}), 400
     except Exception:
         return jsonify({"error": "Error procesando el archivo por lote."}), 500
 

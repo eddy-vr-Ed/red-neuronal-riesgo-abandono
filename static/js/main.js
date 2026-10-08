@@ -265,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnProcessBatch = document.getElementById('btn-process-batch');
     const batchSpinner = document.getElementById('batch-spinner');
     const batchResults = document.getElementById('batch-results');
+    const batchErrorMessage = document.getElementById('batch-error-message');
 
     let archivoSeleccionado = null;
 
@@ -295,8 +296,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function seleccionarArchivo(file) {
         const nombre = file.name.toLowerCase();
+        ocultarErrorLote();
         if (!nombre.endsWith('.xlsx') && !nombre.endsWith('.csv')) {
-            alert('Formato no válido. Sube un archivo .xlsx o .csv.');
+            mostrarErrorLote('Formato no válido. Sube un archivo .xlsx o .csv.');
             fileInput.value = '';
             archivoSeleccionado = null;
             selectedFileInfo.classList.add('hidden');
@@ -338,18 +340,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
 
                 if (res.ok) {
+                    ocultarErrorLote();
                     mostrarResultadosLote(data);
                 } else {
-                    alert('Error en diagnóstico por lote: ' + (data.error || 'Desconocido'));
+                    mostrarErrorLote(data.error || 'El archivo no puede procesarse porque contiene datos vacíos o inválidos. Revisa las columnas requeridas e intenta nuevamente.');
                 }
             } catch (err) {
                 console.error("Error en lote:", err);
-                alert('Error al conectar con el servidor para procesar el lote.');
+                mostrarErrorLote('No se pudo conectar con el servidor para procesar el lote.');
             } finally {
                 btnProcessBatch.disabled = false;
                 batchSpinner.classList.add('hidden');
             }
         });
+    }
+
+    function mostrarErrorLote(mensaje) {
+        if (!batchErrorMessage) {
+            alert(mensaje);
+            return;
+        }
+
+        batchErrorMessage.textContent = mensaje;
+        batchErrorMessage.classList.remove('hidden');
+    }
+
+    function ocultarErrorLote() {
+        if (!batchErrorMessage) return;
+
+        batchErrorMessage.textContent = '';
+        batchErrorMessage.classList.add('hidden');
     }
 
     function mostrarResultadosLote(data) {

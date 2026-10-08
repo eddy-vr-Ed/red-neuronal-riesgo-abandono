@@ -228,7 +228,7 @@
                 <!-- NOTA DE AUDITORÍA ANALÍTICA -->
                 <div class="audit-info-pill">
                     <span class="pill-icon">ℹ</span>
-                    <span>Umbral de corte de decisión: <strong>$\tau = 0.50$</strong>. Datos estandarizados mediante Z-Score.</span>
+                    <span>Umbral de corte de decisión: <strong>τ = 0.50</strong>. Datos estandarizados mediante Z-Score.</span>
                 </div>
             </section>
 
@@ -247,10 +247,10 @@
                     <!-- SECCIÓN TÉCNICA 1: TENSOR DE PESOS SINÁPTICOS -->
                     <div class="tech-subcard">
                         <div class="subcard-header">
-                            <h4>Tensor de Pesos de Primera Capa ($W_1$)</h4>
-                            <span class="chip-live">Live Matrix</span>
+                            <h4>Tensor de Pesos de Primera Capa (W1)</h4>
+                            <span class="chip-live">Muestra didáctica</span>
                         </div>
-                        <p class="tech-desc">Muestra de coeficientes sinápticos actualizados en la neurona principal de entrada:</p>
+                        <p class="tech-desc">Muestra de pesos leídos del modelo cargado después de ejecutar una predicción:</p>
                         
                         <div class="weights-grid" id="weights-display">
                             <div class="weight-chip"><span class="chip-label">W₁</span> <code class="chip-val">--</code></div>
@@ -340,6 +340,8 @@
                     <div class="loader hidden" id="batch-spinner"></div>
                 </button>
             </div>
+
+            <div class="batch-error-message hidden" id="batch-error-message" role="alert"></div>
 
             <!-- Resultados del Lote -->
             <div class="batch-dashboard-results hidden" id="batch-results">
