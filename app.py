@@ -192,7 +192,7 @@ def retroalimentar():
 
 @app.route("/predecir_lote", methods=["POST"])
 def predecir_lote():
-    """Procesa un archivo Excel o CSV con múltiples estudiantes y devuelve el reporte completo."""
+    """Procesa un archivo XLSX o CSV con múltiples estudiantes y devuelve el reporte completo."""
     if not MODELO_CARGADO:
         return jsonify({"error": "El modelo no ha sido entrenado aún."}), 500
 
@@ -204,9 +204,10 @@ def predecir_lote():
         return jsonify({"error": "Nombre de archivo vacío."}), 400
 
     try:
-        if file.filename.endswith((".xlsx", ".xls")):
+        filename = file.filename.lower()
+        if filename.endswith(".xlsx"):
             df = pd.read_excel(file)
-        elif file.filename.endswith(".csv"):
+        elif filename.endswith(".csv"):
             df = pd.read_csv(file)
         else:
             return jsonify({"error": "Formato no válido. Sube un archivo .xlsx o .csv"}), 400
@@ -339,5 +340,4 @@ def descargar_reporte():
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
-
 

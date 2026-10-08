@@ -294,6 +294,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function seleccionarArchivo(file) {
+        const nombre = file.name.toLowerCase();
+        if (!nombre.endsWith('.xlsx') && !nombre.endsWith('.csv')) {
+            alert('Formato no válido. Sube un archivo .xlsx o .csv.');
+            fileInput.value = '';
+            archivoSeleccionado = null;
+            selectedFileInfo.classList.add('hidden');
+            btnProcessBatch.disabled = true;
+            return;
+        }
+
         archivoSeleccionado = file;
         fileNameText.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
         selectedFileInfo.classList.remove('hidden');

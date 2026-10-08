@@ -4,6 +4,7 @@ Versión 2.0 — Maneja codificación One-Hot de variables categóricas
 (grado, grupo, especialidad) y devuelve los encoders para reutilizarlos.
 """
 
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
@@ -30,26 +31,25 @@ def load_and_encode_data():
     X_raw = datos[CATEGORICAL_COLS + NUMERIC_COLS]
     y = datos[TARGET]
 
-    # One-Hot Encoding para las columnas categóricas
-    encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
-    X_cat_encoded = encoder.fit_transform(X_raw[CATEGORICAL_COLS])
-    cat_feature_names = encoder.get_feature_names_out(CATEGORICAL_COLS).tolist()
-
-    # Combinamos categóricas codificadas + numéricas
-    X_numeric = X_raw[NUMERIC_COLS].values
-    import numpy as np
-    X_combined = np.hstack([X_cat_encoded, X_numeric])
-
-    feature_names = cat_feature_names + NUMERIC_COLS
-
-    # División estratificada
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_combined,
+    # División estratificada sobre datos crudos para evitar data leakage.
+    X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+        X_raw,
         y,
         test_size=TEST_SIZE,
         random_state=RANDOM_STATE,
         stratify=y,
     )
+
+    # One-Hot Encoding: se ajusta solo con entrenamiento y transforma prueba.
+    encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+    X_train_cat = encoder.fit_transform(X_train_raw[CATEGORICAL_COLS])
+    X_test_cat = encoder.transform(X_test_raw[CATEGORICAL_COLS])
+    cat_feature_names = encoder.get_feature_names_out(CATEGORICAL_COLS).tolist()
+
+    # Combinamos categóricas codificadas + numéricas.
+    X_train = np.hstack([X_train_cat, X_train_raw[NUMERIC_COLS].values])
+    X_test = np.hstack([X_test_cat, X_test_raw[NUMERIC_COLS].values])
+    feature_names = cat_feature_names + NUMERIC_COLS
 
     return X_train, X_test, y_train, y_test, encoder, feature_names
 

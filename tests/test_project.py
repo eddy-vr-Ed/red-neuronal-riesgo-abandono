@@ -4,7 +4,7 @@ import unittest
 
 import pandas as pd
 
-from src.config import DATASET_FILE, FEATURES, MODEL_FILE, SCALER_FILE, TARGET
+from src.config import DATASET_FILE, ENCODERS_FILE, FEATURES_RAW, MODEL_FILE, SCALER_FILE, TARGET
 
 
 class TestProjectFiles(unittest.TestCase):
@@ -13,13 +13,14 @@ class TestProjectFiles(unittest.TestCase):
 
     def test_dataset_schema(self):
         datos = pd.read_csv(DATASET_FILE)
-        self.assertEqual(list(datos.columns), FEATURES + [TARGET])
+        self.assertEqual(list(datos.columns), FEATURES_RAW + [TARGET])
         self.assertGreater(len(datos), 0)
         self.assertEqual(datos.isnull().sum().sum(), 0)
 
     def test_model_artifacts_exist(self):
         self.assertTrue(MODEL_FILE.exists(), "No existe el modelo entrenado.")
         self.assertTrue(SCALER_FILE.exists(), "No existe el escalador.")
+        self.assertTrue(ENCODERS_FILE.exists(), "No existe el encoder entrenado.")
 
 
 if __name__ == "__main__":
