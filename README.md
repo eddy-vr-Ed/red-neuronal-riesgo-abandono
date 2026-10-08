@@ -32,7 +32,9 @@ red-neuronal-riesgo-abandono/
 ├── src/config.py             # Rutas, columnas y parametros centrales
 ├── src/data/                 # Generacion, inspeccion, preparacion y normalizacion
 ├── src/model/                # Arquitectura y entrenamiento de la red neuronal
-├── src/prediction/           # Predictor CLI individual
+├── src/prediction/           # Prediccion individual y preprocesamiento compartido
+│   ├── predict.py            # Predictor CLI individual
+│   └── preprocessing.py      # One-Hot Encoding y escalado para Flask y CLI
 ├── static/                   # CSS y JavaScript del frontend
 ├── templates/                # Plantillas HTML Flask
 └── tests/                    # Pruebas basicas del proyecto
@@ -111,6 +113,8 @@ El predictor CLI carga los mismos artefactos que la aplicacion Flask:
 - `models/escalador.pkl`
 - `models/encoders.pkl`
 
+Tambien usa `src/prediction/preprocessing.py`, la misma utilidad de One-Hot Encoding y escalado que utiliza Flask antes de enviar datos al modelo.
+
 ## Prediccion por lote
 
 La interfaz permite cargar archivos con multiples estudiantes en estos formatos:
@@ -122,16 +126,13 @@ Columnas requeridas:
 
 - `grado`
 - `grupo`
-- `asistencia_semanal`
-- `promedio`
-
-Columnas opcionales:
-
 - `especialidad`
 - `horas_semana_totales`
+- `asistencia_semanal`
+- `promedio`
 - `materias_reprobadas`
 
-Si faltan columnas opcionales, la aplicacion asigna valores por defecto coherentes con el flujo actual.
+Si el archivo contiene columnas extra, como `riesgo_predicho` o `prob_alto_pct`, el sistema las ignora. Si existen valores vacios, NaN o infinitos en columnas requeridas, se muestra un error claro al usuario.
 
 ## Artefactos generados
 
@@ -192,3 +193,66 @@ No se recomienda hacer merge directo a `main`; usa Pull Request y revisa que no 
 - La precision depende de reglas artificiales de generacion y del conjunto de entrenamiento disponible.
 - La salida BAJO / ALTO es demostrativa y no representa un diagnostico academico real.
 - La compatibilidad de artefactos serializados puede depender de versiones de TensorFlow, Keras y Scikit-learn.
+
+## Creditos y licencias de uso
+
+El codigo fuente fue desarrollado por los integrantes del equipo con fines academicos y educativos. El dataset `data/raw/estudiantes_por_grado.csv` contiene datos sinteticos generados para este proyecto y no incluye informacion personal ni datos reales de estudiantes.
+
+Las librerias utilizadas pertenecen a sus respectivos autores y organizaciones:
+
+- Python
+- Flask
+- TensorFlow / Keras
+- NumPy
+- Pandas
+- Scikit-learn
+- SciPy
+- Joblib
+- Matplotlib
+- OpenPyXL
+- HTML, CSS y JavaScript
+
+Las fuentes consultadas se encuentran en la seccion "Fuentes de consulta".
+
+## Uso de herramientas de inteligencia artificial
+
+Durante el desarrollo de este proyecto se utilizaron herramientas de inteligencia artificial como apoyo academico y tecnico.
+
+La inteligencia artificial se utilizo principalmente para:
+
+- Resolver dudas relacionadas con Python, Flask, TensorFlow/Keras y las librerias utilizadas.
+- Apoyar en la explicacion de conceptos sobre redes neuronales.
+- Proponer y revisar fragmentos de codigo.
+- Apoyar en la identificacion y solucion de errores durante las pruebas.
+- Orientar sobre la organizacion, documentacion y control de calidad del proyecto.
+
+Las decisiones sobre la estructura del proyecto, los datos utilizados, la preparacion y division del conjunto de datos, la arquitectura del modelo, las pruebas y la integracion final fueron revisadas y realizadas por los integrantes del equipo.
+
+El conjunto de datos utilizado es sintetico y fue generado especificamente con fines educativos. El modelo y sus resultados fueron ejecutados y comprobados por el equipo antes de integrarlos al proyecto.
+
+La herramienta de inteligencia artificial se utilizo como apoyo durante el proceso de aprendizaje y desarrollo, y no como sustituto de la revision y participacion de los integrantes del equipo.
+
+## Fuentes de consulta
+
+### Redes neuronales
+
+- Video de consulta sobre redes neuronales: https://www.youtube.com/watch?v=M6oDiCQCins
+- Video de consulta sobre redes neuronales: https://www.youtube.com/watch?v=6vwfT3-mBBw
+- Video de consulta sobre redes neuronales: https://www.youtube.com/watch?v=xSjlvulOiQY
+
+### Aplicacion de redes neuronales en la industria
+
+- Amazon Web Services (AWS). ¿Que es el OCR? - Explicacion del reconocimiento optico de caracteres. https://aws.amazon.com/es/what-is/ocr/
+- Fuente de consulta proporcionada durante la investigacion: https://share.google/AFVKok3mHEx0YQNBS
+
+### Tecnologias y librerias utilizadas
+
+- BBVA. TensorFlow: la biblioteca de codigo abierto de Google para acelerar la adopcion de la IA. https://www.bbva.com/es/innovacion/tensorflow-la-biblioteca-de-codigo-abierto-de-google-para-acelerar-la-adopcion-de-la-ia/
+- ENAE. NumPy. https://www.enae.es/blog/numpy
+- NVIDIA. Pandas Python. https://www.nvidia.com/en-us/glossary/pandas-python/
+- Scikit-learn. Sitio oficial. https://scikit-learn.org/stable/
+- SciPy. Sitio oficial. https://scipy.org/es/faq/
+- Liora. Joblib: What is this Python library and how do I use it? https://liora.io/en/joblib-what-is-this-python-library-and-how-do-i-use-it
+- Flask. Documentacion oficial. https://flask.palletsprojects.com/
+- OpenPyXL. Documentacion oficial. https://openpyxl.readthedocs.io/
+- Matplotlib. Documentacion oficial. https://matplotlib.org/
