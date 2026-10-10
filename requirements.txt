@@ -4,3 +4,6 @@ scikit-learn
 scipy
 joblib
 tensorflow
+matplotlib
+flask
+openpyxl

@@ -24,6 +24,7 @@ Thumbs.db
 # Logs y temporales
 *.log
 *.tmp
+.env
 
 # Archivos generados de forma local
 *.bak
@@ -36,3 +37,6 @@ Thumbs.db
 
 # Salidas experimentales
 /reports/generated/
+
+# Reporte generado por la ejecución de predicción por lote
+/models/ultimo_reporte_lote.csv

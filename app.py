@@ -1,0 +1,384 @@
+"""Servidor Web con Flask para exponer la Red Neuronal v2.0."""
+
+import json
+import joblib
+import numpy as np
+import pandas as pd
+from flask import Flask, render_template, request, jsonify, send_from_directory
+from tensorflow import keras
+
+app = Flask(__name__)
+
+# Definimos las rutas a los modelos entrenados
+from src.config import (
+    ENCODERS_FILE,
+    MODEL_FILE,
+    MODELS_DIR,
+    SCALER_FILE,
+)
+from src.prediction.preprocessing import preparar_matriz_modelo
+
+HISTORY_FILE = MODELS_DIR / "training_history.json"
+PREDICTION_REQUIRED_FIELDS = [
+    "grado",
+    "grupo",
+    "horas_semana_totales",
+    "asistencia_semanal",
+    "promedio",
+    "materias_reprobadas",
+]
+BATCH_REQUIRED_COLUMNS = [
+    "grado",
+    "grupo",
+    "especialidad",
+    "horas_semana_totales",
+    "asistencia_semanal",
+    "promedio",
+    "materias_reprobadas",
+]
+
+# Cargamos el modelo y los preprocesadores
+try:
+    escalador = joblib.load(SCALER_FILE)
+    encoder = joblib.load(ENCODERS_FILE)
+    modelo = keras.models.load_model(MODEL_FILE)
+    MODELO_CARGADO = True
+except Exception as e:
+    print(f"Error cargando el modelo o preprocesadores: {e}")
+    print("Asegúrate de ejecutar primero: python -m src.model.train")
+    MODELO_CARGADO = False
+
+
+def _datos_estudiante_desde_json(data: dict) -> pd.DataFrame:
+    """Valida y convierte el JSON de prediccion individual a un DataFrame."""
+    if not isinstance(data, dict):
+        raise ValueError("La solicitud debe enviarse en formato JSON.")
+
+    faltantes = [campo for campo in PREDICTION_REQUIRED_FIELDS if data.get(campo) in (None, "")]
+    if faltantes:
+        raise ValueError(f"Faltan campos obligatorios: {', '.join(faltantes)}.")
+
+    try:
+        grado = int(data["grado"])
+        grupo = str(data["grupo"]).strip().upper()
+        especialidad = str(data.get("especialidad") or "general").strip().lower()
+        horas = float(data["horas_semana_totales"])
+        asistencia = float(data["asistencia_semanal"])
+        promedio = float(data["promedio"])
+        materias_reprobadas = int(data["materias_reprobadas"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Los campos numericos deben tener valores validos.") from exc
+
+    if grado not in {1, 4, 7, 10}:
+        raise ValueError("El grado debe ser 1, 4, 7 o 10.")
+    if not grupo:
+        raise ValueError("El grupo es obligatorio.")
+    if not 0 <= asistencia <= 100:
+        raise ValueError("La asistencia semanal debe estar entre 0 y 100.")
+    if not 0 <= promedio <= 10:
+        raise ValueError("El promedio debe estar entre 0 y 10.")
+    if materias_reprobadas < 0:
+        raise ValueError("Las materias reprobadas no pueden ser negativas.")
+
+    return pd.DataFrame([{
+        "grado": grado,
+        "grupo": grupo,
+        "especialidad": especialidad,
+        "horas_semana_totales": horas,
+        "asistencia_semanal": asistencia,
+        "promedio": promedio,
+        "materias_reprobadas": materias_reprobadas,
+    }])
+
+
+def _validar_y_preparar_lote(df: pd.DataFrame) -> pd.DataFrame:
+    """Valida un archivo por lote y conserva solo las columnas usadas por el modelo."""
+    df = df.copy()
+    df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
+
+    faltantes = [c for c in BATCH_REQUIRED_COLUMNS if c not in df.columns]
+    if faltantes:
+        raise ValueError(f"Faltan columnas obligatorias: {', '.join(faltantes)}.")
+
+    df = df[BATCH_REQUIRED_COLUMNS].copy()
+    columnas_con_vacios = [
+        col for col in BATCH_REQUIRED_COLUMNS
+        if df[col].isna().any() or (df[col].astype(str).str.strip() == "").any()
+    ]
+    if columnas_con_vacios:
+        raise ValueError(
+            "El archivo contiene valores vacios en las columnas: "
+            f"{', '.join(columnas_con_vacios)}. "
+            "Complete esos datos antes de ejecutar el diagnostico."
+        )
+
+    numeric_cols = ["grado", "horas_semana_totales", "asistencia_semanal", "promedio", "materias_reprobadas"]
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    columnas_invalidas = [
+        col for col in numeric_cols
+        if df[col].isna().any() or not np.isfinite(df[col]).all()
+    ]
+    if columnas_invalidas:
+        raise ValueError(
+            "El archivo contiene datos numericos invalidos en las columnas: "
+            f"{', '.join(columnas_invalidas)}."
+        )
+
+    df["grado"] = df["grado"].astype(int)
+    df["grupo"] = df["grupo"].astype(str).str.strip().str.upper()
+    df["especialidad"] = df["especialidad"].astype(str).str.strip().str.lower().replace({
+        "ric": "redes",
+        "dgs": "software",
+        "dsm": "general",
+    })
+    df["horas_semana_totales"] = df["horas_semana_totales"].astype(float)
+    df["asistencia_semanal"] = df["asistencia_semanal"].astype(float)
+    df["promedio"] = df["promedio"].astype(float)
+    df["materias_reprobadas"] = df["materias_reprobadas"].astype(int)
+
+    return df
+
+
+@app.route("/")
+def index():
+    """Sirve la página web principal."""
+    # Intentamos cargar el historial de entrenamiento para mostrarlo en el frontend
+    history = {}
+    if HISTORY_FILE.exists():
+        try:
+            with open(HISTORY_FILE, "r") as f:
+                history = json.load(f)
+        except:
+            pass
+            
+    return render_template(
+        "index.html", 
+        modelo_listo=MODELO_CARGADO,
+        history=json.dumps(history)
+    )
+
+
+@app.route("/grafica")
+def grafica():
+    """Devuelve la imagen de las curvas de aprendizaje."""
+    return send_from_directory(MODELS_DIR, "curvas_aprendizaje.png")
+
+
+@app.route("/predecir", methods=["POST"])
+def predecir():
+    """Endpoint de la API que recibe datos de la web y usa la Red Neuronal."""
+    global escalador, modelo
+
+    if not MODELO_CARGADO:
+        return jsonify({"error": "El modelo no ha sido entrenado aún."}), 500
+
+    try:
+        datos_estudiante = _datos_estudiante_desde_json(request.get_json(silent=True))
+        X_scaled = preparar_matriz_modelo(datos_estudiante, encoder, escalador)
+
+        # Si el escalador en memoria no coincide con las dimensiones de entrada, recargar desde disco
+        if getattr(escalador, "n_features_in_", None) != X_scaled.shape[1]:
+            escalador = joblib.load(SCALER_FILE)
+            modelo = keras.models.load_model(MODEL_FILE)
+            X_scaled = preparar_matriz_modelo(datos_estudiante, encoder, escalador)
+
+        # 4. Predicción con la Red Neuronal (Forward Propagation)
+        probabilidades = modelo.predict(X_scaled, verbose=0)
+        
+        # 5. Interpretación de la capa Softmax
+        prob_bajo = float(probabilidades[0][0] * 100)
+        prob_alto = float(probabilidades[0][1] * 100)
+        
+        prediccion_idx = int(np.argmax(probabilidades, axis=1)[0])
+        riesgo_str = "ALTO" if prediccion_idx == 1 else "BAJO"
+
+        # Obtenemos pesos sinápticos de la primera capa para demostración de aprendizaje
+        primeros_pesos = modelo.layers[0].get_weights()[0][:5, 0].round(4).tolist()
+
+        return jsonify({
+            "riesgo": riesgo_str,
+            "probabilidad_bajo": f"{prob_bajo:.1f}%",
+            "probabilidad_alto": f"{prob_alto:.1f}%",
+            "pesos_ejemplo": primeros_pesos,
+        })
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return jsonify({"error": "No se pudo procesar la prediccion."}), 400
+
+
+@app.route("/retroalimentar", methods=["POST"])
+def retroalimentar():
+    """Permite a la red neuronal aprender de una consulta real mediante retroalimentación (Fine-Tuning online)."""
+    global modelo
+    if not MODELO_CARGADO:
+        return jsonify({"error": "Modelo no cargado"}), 500
+
+    try:
+        data = request.json
+        grado = int(data.get("grado", 1))
+        grupo = str(data.get("grupo", "A"))
+        especialidad = str(data.get("especialidad", "general"))
+        horas = float(data.get("horas_semana_totales") or 30)
+        asistencia = float(data.get("asistencia_semanal") or 0)
+        promedio = float(data.get("promedio") or 0)
+        materias_reprobadas = int(data.get("materias_reprobadas") or 0)
+        etiqueta_real = int(data.get("etiqueta_real", 1))  # 0: BAJO, 1: ALTO
+
+        datos_estudiante = pd.DataFrame([{
+            "grado": grado,
+            "grupo": grupo,
+            "especialidad": especialidad,
+            "horas_semana_totales": horas,
+            "asistencia_semanal": asistencia,
+            "promedio": promedio,
+            "materias_reprobadas": materias_reprobadas,
+        }])
+
+        X_scaled = preparar_matriz_modelo(datos_estudiante, encoder, escalador)
+        y_real = np.array([etiqueta_real])
+
+        pesos_antes = modelo.layers[0].get_weights()[0][:4, 0].round(4).tolist()
+
+        # Entrenamiento en 1 paso (Backpropagation y actualización de pesos sinápticos)
+        hist = modelo.fit(X_scaled, y_real, epochs=1, verbose=0)
+        loss_obtenido = float(hist.history["loss"][0])
+
+        pesos_despues = modelo.layers[0].get_weights()[0][:4, 0].round(4).tolist()
+
+        # Guardar modelo actualizado
+        modelo.save(MODEL_FILE)
+
+        return jsonify({
+            "status": "ok",
+            "mensaje": "¡La red neuronal ajustó sus pesos sinápticos con esta consulta!",
+            "loss": round(loss_obtenido, 4),
+            "pesos_antes": pesos_antes,
+            "pesos_despues": pesos_despues,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/predecir_lote", methods=["POST"])
+def predecir_lote():
+    """Procesa un archivo XLSX o CSV con múltiples estudiantes y devuelve el reporte completo."""
+    if not MODELO_CARGADO:
+        return jsonify({"error": "El modelo no ha sido entrenado aún."}), 500
+
+    if "archivo" not in request.files:
+        return jsonify({"error": "No se subió ningún archivo."}), 400
+
+    file = request.files["archivo"]
+    if not file.filename:
+        return jsonify({"error": "Nombre de archivo vacío."}), 400
+
+    try:
+        filename = file.filename.lower()
+        if filename.endswith(".xlsx"):
+            df = pd.read_excel(file)
+        elif filename.endswith(".csv"):
+            df = pd.read_csv(file)
+        else:
+            return jsonify({"error": "Formato no válido. Sube un archivo .xlsx o .csv"}), 400
+
+        if df.empty:
+            return jsonify({"error": "El archivo no contiene registros para procesar."}), 400
+
+        df = _validar_y_preparar_lote(df)
+
+        # Preprocesamiento por lotes
+        X_scaled = preparar_matriz_modelo(df, encoder, escalador)
+
+        # Predicción masiva
+        probabilidades = modelo.predict(X_scaled, verbose=0)
+        predicciones_idx = np.argmax(probabilidades, axis=1)
+
+        # Añadimos resultados al DataFrame
+        df["riesgo_predicho"] = ["ALTO" if p == 1 else "BAJO" for p in predicciones_idx]
+        df["prob_bajo_pct"] = (probabilidades[:, 0] * 100).round(1)
+        df["prob_alto_pct"] = (probabilidades[:, 1] * 100).round(1)
+
+        total_alumnos = len(df)
+        total_alto = int((predicciones_idx == 1).sum())
+        total_bajo = int((predicciones_idx == 0).sum())
+
+        # Agrupación por grado y grupo
+        resumen_grupos = df.groupby(["grado", "grupo", "especialidad"]).agg(
+            total=("riesgo_predicho", "count"),
+            en_riesgo=("riesgo_predicho", lambda x: (x == "ALTO").sum())
+        ).reset_index()
+        resumen_grupos["pct_riesgo"] = (resumen_grupos["en_riesgo"] / resumen_grupos["total"] * 100).round(1)
+
+        # Guardamos el archivo procesado en memoria / temporal para descarga
+        resultado_json = {
+            "total_alumnos": total_alumnos,
+            "total_alto": total_alto,
+            "total_bajo": total_bajo,
+            "pct_alto": round((total_alto / total_alumnos * 100), 1) if total_alumnos > 0 else 0,
+            "grupos": resumen_grupos.to_dict(orient="records"),
+            "detalle": df[[
+                "grado", "grupo", "especialidad", "horas_semana_totales", 
+                "asistencia_semanal", "promedio", "materias_reprobadas", 
+                "riesgo_predicho", "prob_alto_pct"
+            ]].to_dict(orient="records")
+        }
+
+        # Guardamos en CSV temporal para exportar
+        reporte_path = MODELS_DIR / "ultimo_reporte_lote.csv"
+        df.to_csv(reporte_path, index=False)
+
+        return jsonify(resultado_json)
+
+    except pd.errors.EmptyDataError:
+        return jsonify({"error": "El archivo esta vacio o no tiene columnas."}), 400
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return jsonify({"error": "Error procesando el archivo por lote."}), 500
+
+
+@app.route("/descargar_plantilla")
+def descargar_plantilla():
+    """Genera y descarga una plantilla Excel de ejemplo con la estructura correcta."""
+    from io import BytesIO
+    from flask import send_file
+
+    datos_ejemplo = [
+        {"grado": 1, "grupo": "A", "especialidad": "general", "horas_semana_totales": 35, "asistencia_semanal": 88.5, "promedio": 8.5, "materias_reprobadas": 0},
+        {"grado": 1, "grupo": "B", "especialidad": "general", "horas_semana_totales": 35, "asistencia_semanal": 55.0, "promedio": 5.8, "materias_reprobadas": 2},
+        {"grado": 4, "grupo": "A", "especialidad": "general", "horas_semana_totales": 35, "asistencia_semanal": 92.0, "promedio": 9.0, "materias_reprobadas": 0},
+        {"grado": 7, "grupo": "C", "especialidad": "general", "horas_semana_totales": 35, "asistencia_semanal": 60.0, "promedio": 6.2, "materias_reprobadas": 1},
+        {"grado": 10, "grupo": "A", "especialidad": "redes", "horas_semana_totales": 25, "asistencia_semanal": 30.0, "promedio": 5.1, "materias_reprobadas": 2},
+        {"grado": 10, "grupo": "A", "especialidad": "software", "horas_semana_totales": 25, "asistencia_semanal": 94.0, "promedio": 9.5, "materias_reprobadas": 0},
+        {"grado": 10, "grupo": "B", "especialidad": "software", "horas_semana_totales": 25, "asistencia_semanal": 70.0, "promedio": 7.2, "materias_reprobadas": 1},
+    ]
+    df_ejemplo = pd.DataFrame(datos_ejemplo)
+
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df_ejemplo.to_excel(writer, index=False, sheet_name="Estudiantes")
+    output.seek(0)
+
+    return send_file(
+        output,
+        download_name="plantilla_estudiantes_riesgo.xlsx",
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+@app.route("/descargar_reporte")
+def descargar_reporte():
+    """Descarga el último reporte generado en CSV."""
+    reporte_path = MODELS_DIR / "ultimo_reporte_lote.csv"
+    if not reporte_path.exists():
+        return "No hay reporte generado aún.", 404
+    return send_from_directory(MODELS_DIR, "ultimo_reporte_lote.csv", as_attachment=True)
+
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)

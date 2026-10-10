@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REDES NEURONALES v2.0 · Plataforma de Predicción de Riesgo</title>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <!-- BARRA SUPERIOR INSTITUCIONAL (HEADER & APP TOOLBAR) -->
+    <header class="app-topbar">
+        <div class="topbar-brand">
+            <div class="brand-icon">⬡</div>
+            <div class="brand-info">
+                <div class="brand-title-row">
+                    <h1 class="brand-title">REDES NEURONALES</h1>
+                    <span class="version-badge">v2.0 PROD</span>
+                </div>
+                <p class="brand-subtitle">Clasificación de Riesgo de Abandono Escolar · Modelo MLP Multicapa</p>
+            </div>
+        </div>
+
+        <!-- Segmented Controls / Pestañas de Vista -->
+        <nav class="topbar-navigation" aria-label="Selector de Modo">
+            <div class="segmented-control">
+                <button type="button" class="segment-btn active" id="tab-btn-individual">
+                    <span class="segment-icon">👤</span> Consulta Individual
+                </button>
+                <button type="button" class="segment-btn" id="tab-btn-lotes">
+                    <span class="segment-icon">📊</span> Análisis por Lotes (Excel)
+                </button>
+            </div>
+        </nav>
+
+        <!-- Indicadores de Sistema y Acciones Globales -->
+        <div class="topbar-actions">
+            <div class="model-status-chip">
+                <span class="status-dot"></span>
+                <span class="status-text">Red neuronal activa</span>
+            </div>
+            <button type="button" class="btn-topbar-tool" id="btn-graficas" title="Ver Curvas de Aprendizaje">
+                📈 Métricas de Red
+            </button>
+        </div>
+    </header>
+
+    {% if not modelo_listo %}
+    <div class="system-alert-banner">
+        <span class="alert-icon">⚠️</span>
+        <div class="alert-content">
+            <strong>Modelo no detectado:</strong> Debe compilar y entrenar la red ejecutando <code>python -m src.model.train</code> en su entorno.
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- CONTENEDOR PRINCIPAL FLUIDO (100% ZOOM / VIEWPORT) -->
+    <div class="app-workspace">
+
+        <!-- ========================================================
+             VISTA 1: CONSULTA INDIVIDUAL (3 PANELES SECUENCIALES L -> R)
+             ======================================================== -->
+        <main class="panoramic-dashboard" id="view-individual">
+
+            <!-- PANEL 1: ENTRADA DE DATOS -->
+            <section class="dashboard-panel panel-entry" aria-labelledby="heading-entry">
+                <div class="panel-header">
+                    <div class="panel-step-badge">01</div>
+                    <div class="panel-titles">
+                        <h2 id="heading-entry">Entrada de Datos</h2>
+                        <p>Parámetros y trayectoria del alumno</p>
+                    </div>
+                </div>
+
+                <form id="prediction-form" class="entry-form">
+                    
+                    <!-- GRUPO A: DATOS GENERALES DEL ESTUDIANTE -->
+                    <fieldset class="form-fieldset">
+                        <legend class="fieldset-legend">Datos Generales del Estudiante</legend>
+                        
+                        <div class="form-row-2">
+                            <div class="field-item">
+                                <label for="grado">Cuatrimestre</label>
+                                <select id="grado" name="grado" class="input-select" required>
+                                    <option value="" disabled selected>Seleccione...</option>
+                                    <option value="1">1ro Cuatrimestre</option>
+                                    <option value="4">4to Cuatrimestre</option>
+                                    <option value="7">7mo Cuatrimestre</option>
+                                    <option value="10">10mo Cuatrimestre</option>
+                                </select>
+                            </div>
+
+                            <div class="field-item">
+                                <label for="grupo">Grupo</label>
+                                <select id="grupo" name="grupo" class="input-select" required disabled>
+                                    <option value="" disabled selected>Esperando grado...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row-2">
+                            <div class="field-item" id="especialidad-group" style="display: none;">
+                                <label for="especialidad">Especialidad</label>
+                                <select id="especialidad" name="especialidad" class="input-select">
+                                    <option value="software">Software (DGS)</option>
+                                    <option value="redes">Redes (RIC)</option>
+                                </select>
+                            </div>
+
+                            <div class="field-item" id="horas-group">
+                                <label for="horas_semana_totales">Horas Lectivas / Sem.</label>
+                                <div class="input-with-badge">
+                                    <input type="number" id="horas_semana_totales" name="horas_semana_totales" readonly class="input-readonly" placeholder="--">
+                                    <span class="field-badge">Horario Oficial</span>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- GRUPO B: MÉTRICAS ACADÉMICAS ACUMULADAS -->
+                    <fieldset class="form-fieldset">
+                        <legend class="fieldset-legend">Métricas Académicas Acumuladas</legend>
+
+                        <div class="form-row-2">
+                            <div class="field-item">
+                                <label for="asistencia_semanal">Asistencia Efectiva (%)</label>
+                                <div class="input-with-unit">
+                                    <input type="number" id="asistencia_semanal" name="asistencia_semanal" min="0" max="100" step="0.1" required placeholder="0.0 - 100.0" class="input-text">
+                                    <span class="unit-symbol">%</span>
+                                </div>
+                            </div>
+
+                            <div class="field-item">
+                                <label for="promedio">Promedio General (0 - 10)</label>
+                                <div class="input-with-unit">
+                                    <input type="number" id="promedio" name="promedio" min="0" max="10" step="0.1" required placeholder="0.0 - 10.0" class="input-text">
+                                    <span class="unit-symbol">Pts</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-row-1">
+                            <div class="field-item">
+                                <label for="materias_reprobadas">Materias Reprobadas (Acumuladas)</label>
+                                <div class="input-with-unit">
+                                    <input type="number" id="materias_reprobadas" name="materias_reprobadas" min="0" max="7" value="0" required placeholder="0 a 7" class="input-text">
+                                    <span class="unit-symbol">Asig.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- BOTÓN DE ACCIÓN PRINCIPAL (PRIMARY CTA) -->
+                    <div class="form-action-footer">
+                        <button type="submit" class="btn-primary-cta" id="btn-submit" {% if not modelo_listo %}disabled{% endif %}>
+                            <span class="cta-label">Ejecutar Inferencia Neural</span>
+                            <span class="cta-arrow">→</span>
+                            <div class="loader hidden" id="spinner"></div>
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- PANEL 2: RESULTADOS PRINCIPALES -->
+            <section class="dashboard-panel panel-verdict" aria-labelledby="heading-verdict">
+                <div class="panel-header">
+                    <div class="panel-step-badge">02</div>
+                    <div class="panel-titles">
+                        <h2 id="heading-verdict">Resultados Principales</h2>
+                        <p>Dictamen y distribución de probabilidad</p>
+                    </div>
+                </div>
+
+                <!-- TARJETA EJECUTIVA DE RESULTADOS INTEGRADA -->
+                <div class="verdict-card" id="status-card">
+                    <div class="verdict-indicator-bar"></div>
+                    <div class="verdict-body">
+                        <div class="verdict-icon-badge" id="status-icon">?</div>
+                        <div class="verdict-copy">
+                            <span class="verdict-subtitle">NIVEL DE RIESGO DE ABANDONO</span>
+                            <h3 class="verdict-title" id="riesgo-label">Esperando Datos</h3>
+                            <p class="verdict-detail" id="riesgo-desc">Capture las variables académicas a la izquierda para ejecutar la red neuronal.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ALINEACIÓN PRECISA DE PROBABILIDADES SOFTMAX -->
+                <div class="softmax-analysis-box">
+                    <div class="box-header">
+                        <h4>Distribución de Probabilidad Softmax</h4>
+                        <span class="box-caption">Capa Final: 2 Neuronas</span>
+                    </div>
+
+                    <!-- Métrica: Riesgo BAJO -->
+                    <div class="probability-metric metric-bajo">
+                        <div class="metric-info-row">
+                            <div class="metric-label-group">
+                                <span class="metric-dot dot-bajo"></span>
+                                <span class="metric-name">Riesgo Bajo (Aprobación)</span>
+                            </div>
+                            <span class="metric-val" id="prob-bajo-text">--%</span>
+                        </div>
+                        <div class="metric-track">
+                            <div class="metric-bar bar-bajo" id="bar-bajo" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Métrica: Riesgo ALTO -->
+                    <div class="probability-metric metric-alto">
+                        <div class="metric-info-row">
+                            <div class="metric-label-group">
+                                <span class="metric-dot dot-alto"></span>
+                                <span class="metric-name">Riesgo Alto (Abandono Inminente)</span>
+                            </div>
+                            <span class="metric-val" id="prob-alto-text">--%</span>
+                        </div>
+                        <div class="metric-track">
+                            <div class="metric-bar bar-alto" id="bar-alto" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NOTA DE AUDITORÍA ANALÍTICA -->
+                <div class="audit-info-pill">
+                    <span class="pill-icon">ℹ</span>
+                    <span>Umbral de corte de decisión: <strong>τ = 0.50</strong>. Datos estandarizados mediante Z-Score.</span>
+                </div>
+            </section>
+
+            <!-- PANEL 3: MONITOREO TÉCNICO Y FLUJO (VISUALMENTE SECUNDARIO / EXPLICABILIDAD) -->
+            <section class="dashboard-panel panel-monitor" aria-labelledby="heading-monitor">
+                <div class="panel-header">
+                    <div class="panel-step-badge">03</div>
+                    <div class="panel-titles">
+                        <h2 id="heading-monitor">Monitoreo Técnico & Flujo</h2>
+                        <p>Explicabilidad y pesos sinápticos activos</p>
+                    </div>
+                    <span class="panel-tag-secondary">Inspector ML</span>
+                </div>
+
+                <div class="monitor-content-scroller">
+                    <!-- SECCIÓN TÉCNICA 1: TENSOR DE PESOS SINÁPTICOS -->
+                    <div class="tech-subcard">
+                        <div class="subcard-header">
+                            <h4>Tensor de Pesos de Primera Capa (W1)</h4>
+                            <span class="chip-live">Muestra didáctica</span>
+                        </div>
+                        <p class="tech-desc">Muestra de pesos leídos del modelo cargado después de ejecutar una predicción:</p>
+                        
+                        <div class="weights-grid" id="weights-display">
+                            <div class="weight-chip"><span class="chip-label">W₁</span> <code class="chip-val">--</code></div>
+                            <div class="weight-chip"><span class="chip-label">W₂</span> <code class="chip-val">--</code></div>
+                            <div class="weight-chip"><span class="chip-label">W₃</span> <code class="chip-val">--</code></div>
+                            <div class="weight-chip"><span class="chip-label">W₄</span> <code class="chip-val">--</code></div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN TÉCNICA 2: FLUJO DE FORWARD PROPAGATION -->
+                    <div class="tech-subcard">
+                        <div class="subcard-header">
+                            <h4>Flujo de Forward Propagation</h4>
+                            <span class="chip-flow">4 Fases</span>
+                        </div>
+                        <div class="propagation-timeline">
+                            <div class="flow-step">
+                                <div class="step-num">1</div>
+                                <div class="step-desc">
+                                    <strong>Vector Crudo &rarr; Encoding</strong>
+                                    <span>One-Hot Categórico + Numéricas Directas</span>
+                                </div>
+                            </div>
+                            <div class="flow-step">
+                                <div class="step-num">2</div>
+                                <div class="step-desc">
+                                    <strong>Estandarización Z-Score</strong>
+                                    <span>Media = 0 y Varianza = 1 con StandardScaler</span>
+                                </div>
+                            </div>
+                            <div class="flow-step">
+                                <div class="step-num">3</div>
+                                <div class="step-desc">
+                                    <strong>Capas Ocultas (MLP)</strong>
+                                    <span>Dense(16, ReLU) &rarr; Dense(8, ReLU)</span>
+                                </div>
+                            </div>
+                            <div class="flow-step">
+                                <div class="step-num">4</div>
+                                <div class="step-desc">
+                                    <strong>Capa Softmax de Decisión</strong>
+                                    <span>2 Neuronas de Salida: P(Bajo) vs P(Alto)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- ========================================================
+             VISTA 2: PROCESAMIENTO POR LOTES (EXCEL INSTITUCIONAL)
+             ======================================================== -->
+        <main class="batch-workspace hidden" id="view-lotes">
+            <div class="batch-top-banner">
+                <div class="batch-intro">
+                    <h2>Auditoría y Diagnóstico Institucional por Lotes</h2>
+                    <p>Suba las listas completas de alumnos por cuatrimestre para generar el dictamen institucional automático.</p>
+                </div>
+                <div class="batch-quick-tools">
+                    <a href="/descargar_plantilla" class="btn-secondary-action" download>
+                        📥 Descargar Plantilla Oficial Excel (.xlsx)
+                    </a>
+                </div>
+            </div>
+
+            <!-- Zona de Carga Drag & Drop -->
+            <div class="upload-dropzone" id="upload-zone">
+                <input type="file" id="file-input" accept=".xlsx, .csv" class="dropzone-file-input">
+                <div class="dropzone-view">
+                    <div class="dropzone-icon">📊</div>
+                    <p class="dropzone-primary-text">Arrastre su archivo Excel o CSV aquí o <span class="text-accent">explore en su equipo</span></p>
+                    <p class="dropzone-secondary-text">Formatos aceptados: .xlsx, .csv · Columnas requeridas: grado, grupo, asistencia_semanal, promedio</p>
+                    
+                    <div class="dropzone-badge hidden" id="selected-file-info">
+                        <span class="file-icon-mini">📄</span>
+                        <span id="file-name-text">archivo.xlsx</span>
+                        <button type="button" class="btn-file-clear" id="btn-remove-file" title="Quitar archivo">&times;</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="batch-execute-bar">
+                <button type="button" class="btn-primary-cta btn-batch-submit" id="btn-process-batch" disabled>
+                    <span>Ejecutar Diagnóstico Masivo con Red Neuronal</span>
+                    <div class="loader hidden" id="batch-spinner"></div>
+                </button>
+            </div>
+
+            <div class="batch-error-message hidden" id="batch-error-message" role="alert"></div>
+
+            <!-- Resultados del Lote -->
+            <div class="batch-dashboard-results hidden" id="batch-results">
+                <!-- Tarjetas KPI de Resumen -->
+                <div class="kpi-grid">
+                    <div class="kpi-card kpi-total">
+                        <span class="kpi-title">ALUMNOS EVALUADOS</span>
+                        <span class="kpi-value" id="rep-total">0</span>
+                        <span class="kpi-sub">Total en el padrón</span>
+                    </div>
+                    <div class="kpi-card kpi-danger">
+                        <span class="kpi-title">RIESGO ALTO (ABANDONO)</span>
+                        <span class="kpi-value" id="rep-alto">0</span>
+                        <span class="kpi-sub">Intervención prioritaria</span>
+                    </div>
+                    <div class="kpi-card kpi-success">
+                        <span class="kpi-title">RIESGO BAJO (APROBADOS)</span>
+                        <span class="kpi-value" id="rep-bajo">0</span>
+                        <span class="kpi-sub">Trayectoria regular</span>
+                    </div>
+                    <div class="kpi-card kpi-warning">
+                        <span class="kpi-title">TASA CRÍTICA GLOBAL</span>
+                        <span class="kpi-value" id="rep-pct">0%</span>
+                        <span class="kpi-sub">% de alumnos en riesgo</span>
+                    </div>
+                </div>
+
+                <!-- Tabla de Resumen por Grupo -->
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <div>
+                            <h3>Desglose Institucional por Grupo y Especialidad</h3>
+                            <p>Resumen agrupado con índice de alerta por cohorte</p>
+                        </div>
+                        <a href="/descargar_reporte" class="btn-export-csv" id="btn-download-report">
+                            📑 Exportar Dictamen Completo (CSV)
+                        </a>
+                    </div>
+                    <div class="table-container">
+                        <table class="enterprise-table" id="table-grupos">
+                            <thead>
+                                <tr>
+                                    <th>Grado</th>
+                                    <th>Grupo</th>
+                                    <th>Especialidad</th>
+                                    <th>Total Alumnos</th>
+                                    <th>En Riesgo Alto</th>
+                                    <th>% en Riesgo</th>
+                                    <th>Nivel de Alerta</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-grupos">
+                                <!-- Filas dinámicas -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Detalle de Alumnos -->
+                <div class="table-card mt-4">
+                    <div class="table-card-header">
+                        <div>
+                            <h3>Registro Individual de Clasificación</h3>
+                            <p>Detalle por estudiante con probabilidades normalizadas</p>
+                        </div>
+                    </div>
+                    <div class="table-container table-scrollable">
+                        <table class="enterprise-table" id="table-detalle">
+                            <thead>
+                                <tr>
+                                    <th>Grado</th>
+                                    <th>Grupo</th>
+                                    <th>Especialidad</th>
+                                    <th>Horas/Sem</th>
+                                    <th>Asistencia</th>
+                                    <th>Promedio</th>
+                                    <th>Reprobadas</th>
+                                    <th>Predicción</th>
+                                    <th>Prob. Alto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-detalle">
+                                <!-- Filas dinámicas -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- MODAL DE CURVAS DE APRENDIZAJE -->
+    <div id="grafica-modal" class="app-modal hidden">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div>
+                    <h3>Curvas de Aprendizaje Neural (Loss & Accuracy)</h3>
+                    <p>Evolución del entrenamiento supervisado a lo largo de 100 épocas</p>
+                </div>
+                <button type="button" class="modal-close-btn" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <img src="{{ url_for('grafica') }}" alt="Gráfica de Curvas de Aprendizaje" class="modal-graphic-img">
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>
