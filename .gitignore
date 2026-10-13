@@ -40,3 +40,7 @@ Thumbs.db
 
 # Reporte generado por la ejecución de predicción por lote
 /models/ultimo_reporte_lote.csv
+
+# Artefactos activos mutables inicializados desde models/
+/models/runtime/
+/reports/runtime/

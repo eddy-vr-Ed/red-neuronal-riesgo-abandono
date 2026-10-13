@@ -58,10 +58,10 @@ Flask construye un `DataFrame`, aplica `encoders.pkl`, concatena las variables n
 1. Lee el archivo con Pandas.
 2. Normaliza nombres de columnas.
 3. Valida columnas obligatorias.
-4. Completa columnas opcionales cuando faltan.
+4. Rechaza valores faltantes o fuera de rango.
 5. Aplica el mismo encoder, escalador y modelo que la prediccion individual.
 6. Devuelve resumen por grupo y detalle por estudiante.
-7. Genera `models/ultimo_reporte_lote.csv` para descarga.
+7. Genera un reporte CSV aislado por `report_id` para descarga.
 
 Ese reporte es una salida temporal de ejecucion, no un artefacto fuente.
 
@@ -74,8 +74,9 @@ Ese reporte es una salida temporal de ejecucion, no un artefacto fuente.
 - `/predecir`: inferencia individual.
 - `/predecir_lote`: inferencia masiva.
 - `/descargar_plantilla`: plantilla `.xlsx`.
-- `/descargar_reporte`: ultimo reporte generado.
-- `/retroalimentar`: endpoint experimental de ajuste online.
+- `/descargar_reporte?id=<report_id>`: reporte generado para un lote concreto.
+- `/retroalimentar`: ajuste online autorizado con etiqueta real proporcionada por el usuario.
+- `/health`: disponibilidad del servicio y artefactos ML.
 
 ## 6. Rol de templates y archivos estaticos
 
@@ -83,7 +84,7 @@ Ese reporte es una salida temporal de ejecucion, no un artefacto fuente.
 - `static/js/main.js` maneja seleccion de grado/grupo, validaciones, llamadas `fetch` a Flask y renderizado de resultados.
 - `static/css/style.css` contiene el estilo visual de la interfaz.
 
-El endpoint `/retroalimentar` existe en backend, pero no forma parte del flujo principal visible del frontend.
+El endpoint `/retroalimentar` existe en backend, pero no forma parte del flujo principal visible del frontend. Para usarlo se debe enviar un header `X-Feedback-Token` o `Authorization: Bearer ...`; el token no se publica en HTML ni JavaScript.
 
 ## 7. Rol de los artefactos del modelo
 
@@ -93,10 +94,12 @@ El endpoint `/retroalimentar` existe en backend, pero no forma parte del flujo p
 - `training_history.json`: historial de entrenamiento para evidencia academica.
 - `curvas_aprendizaje.png`: grafica de entrenamiento.
 
+En ejecucion, la aplicacion usa copias activas en `MODEL_STORAGE_DIR`. Si ese directorio esta vacio se inicializa desde `models/`; si ya contiene un modelo actualizado, no se sobrescribe al arrancar.
+
 ## 8. Limitaciones
 
 - El dataset es sintetico y no representa comportamiento real de estudiantes.
 - La precision del modelo depende de reglas artificiales usadas para generar datos.
 - Las predicciones son demostrativas y no deben usarse para tomar decisiones academicas.
 - Los artefactos serializados pueden requerir versiones compatibles de Scikit-learn, TensorFlow y Keras.
-- La retroalimentacion online es experimental y puede modificar el modelo guardado si se integra al frontend.
+- La retroalimentacion online modifica el modelo activo cuando recibe una etiqueta real autorizada; requiere almacenamiento persistente para conservar esos cambios tras reinicios o redepliegues.

@@ -798,12 +798,23 @@ html, body {
     border-top: 1px dashed var(--border-subtle);
 }
 
+.feedback-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 7px;
+}
+
 .feedback-heading {
     display: block;
     font-size: 0.72rem;
     font-weight: 600;
     color: var(--text-secondary);
     margin-bottom: 6px;
+}
+
+.feedback-control {
+    height: 34px;
+    font-size: 0.78rem;
 }
 
 .feedback-btn-group {

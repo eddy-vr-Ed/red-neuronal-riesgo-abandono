@@ -101,6 +101,8 @@ La aplicacion queda disponible normalmente en:
 http://127.0.0.1:5000
 ```
 
+Para la demostracion en el servidor de un compañero, consulta [docs/deployment.md](docs/deployment.md). Esa guia no asume proveedor: primero lista los datos del servidor que deben confirmarse.
+
 ## Prediccion por linea de comandos
 
 ```bash
@@ -109,9 +111,9 @@ python -m src.prediction.predict
 
 El predictor CLI carga los mismos artefactos que la aplicacion Flask:
 
-- `models/modelo_riesgo.keras`
-- `models/escalador.pkl`
-- `models/encoders.pkl`
+- `MODEL_STORAGE_DIR/modelo_riesgo.keras`
+- `MODEL_STORAGE_DIR/escalador.pkl`
+- `MODEL_STORAGE_DIR/encoders.pkl`
 
 Tambien usa `src/prediction/preprocessing.py`, la misma utilidad de One-Hot Encoding y escalado que utiliza Flask antes de enviar datos al modelo.
 
@@ -144,11 +146,9 @@ El entrenamiento genera o actualiza:
 - `models/training_history.json`
 - `models/curvas_aprendizaje.png`
 
-La prediccion por lote genera temporalmente:
+La prediccion por lote genera temporalmente reportes aislados por identificador en el directorio temporal del sistema, o en `REPORTS_DIR` si se configura. El identificador de descarga es un UUID y no una ruta de archivo.
 
-- `models/ultimo_reporte_lote.csv`
-
-Ese ultimo archivo es una salida de ejecucion y no debe tratarse como fuente del proyecto.
+Esos reportes son salidas de ejecucion y no deben tratarse como fuente del proyecto. Para una demo compartida conviene limpiar periodicamente `REPORTS_DIR`, por ejemplo al terminar cada sesion o antes de publicar una URL nueva.
 
 ## Endpoints principales
 
@@ -156,8 +156,58 @@ Ese ultimo archivo es una salida de ejecucion y no debe tratarse como fuente del
 - `/predecir`: prediccion individual desde JSON.
 - `/predecir_lote`: prediccion masiva desde archivo `.xlsx` o `.csv`.
 - `/descargar_plantilla`: plantilla Excel con columnas esperadas.
-- `/descargar_reporte`: descarga del ultimo reporte por lote generado.
-- `/retroalimentar`: endpoint experimental de ajuste online; no esta integrado como flujo principal del frontend.
+- `/descargar_reporte?id=<report_id>`: descarga el reporte generado para ese lote.
+- `/retroalimentar`: ajuste online con etiqueta real `0`/`1` y token `FEEDBACK_TOKEN`.
+- `/health`: estado de servicio, modelo y preprocesadores.
+
+## Validaciones actuales
+
+La API rechaza valores vacios, NaN, infinito, booleanos en campos numericos, grados fuera de `1`, `4`, `7` o `10`, horas por semana menores o iguales a cero, asistencia fuera de `0-100`, promedio fuera de `0-10`, materias reprobadas negativas y combinaciones invalidas de grado, grupo y especialidad.
+
+Los campos `grado`, `materias_reprobadas` y `etiqueta_real` deben ser enteros sin decimales. En lote se rechazan archivos vacios o corruptos, columnas faltantes, columnas duplicadas despues de normalizar nombres, valores vacios y archivos que superen `MAX_BATCH_ROWS`.
+
+## Aprendizaje y persistencia
+
+La prediccion normal solo realiza inferencia; no entrena ni modifica pesos. El aprendizaje de la demo ocurre unicamente en `/retroalimentar`, requiere `FEEDBACK_TOKEN` y una `etiqueta_real` valida (`0` para BAJO, `1` para ALTO).
+
+El modelo activo se carga desde `MODEL_STORAGE_DIR`. Si ese directorio esta vacio, la app copia los artefactos iniciales versionados desde `models/`. La retroalimentacion guarda el modelo con archivo temporal y reemplazo atomico; si el guardado falla despues de entrenar, la app restaura los pesos anteriores en memoria y devuelve error.
+
+Variables importantes:
+
+- `MODEL_STORAGE_DIR`: directorio persistente del modelo activo.
+- `REPORTS_DIR`: directorio de reportes temporales de lote.
+- `FEEDBACK_TOKEN`: secreto para autorizar retroalimentacion; no se publica en HTML ni JavaScript.
+- `PORT`: puerto HTTP local o inyectado por el servidor.
+- `WEB_CONCURRENCY`: mantener en `1` para evitar varios procesos modificando el modelo.
+- `GUNICORN_THREADS`: mantener en `1` para el diseno actual.
+- `MAX_UPLOAD_MB` y `MAX_BATCH_ROWS`: limites de carga.
+
+Si se usa un archivo `.env`, hay que cargarlo explicitamente con la herramienta del entorno o exportar las variables antes de arrancar. Flask/Gunicorn no cargan `.env` por si solos en esta configuracion.
+
+## Prueba con curl o Postman
+
+Prediccion individual:
+
+```bash
+curl -X POST "$BASE_URL/predecir" \
+  -H "Content-Type: application/json" \
+  -d '{"grado":1,"grupo":"A","especialidad":"general","horas_semana_totales":35,"asistencia_semanal":88,"promedio":8.5,"materias_reprobadas":0}'
+```
+
+Retroalimentacion autorizada, sin publicar el token en la interfaz:
+
+```bash
+curl -X POST "$BASE_URL/retroalimentar" \
+  -H "Content-Type: application/json" \
+  -H "X-Feedback-Token: $FEEDBACK_TOKEN" \
+  -d '{"grado":1,"grupo":"A","especialidad":"general","horas_semana_totales":35,"asistencia_semanal":88,"promedio":8.5,"materias_reprobadas":0,"etiqueta_real":0}'
+```
+
+Health check:
+
+```bash
+curl -f "$BASE_URL/health"
+```
 
 ## Flujo recomendado con GitHub
 

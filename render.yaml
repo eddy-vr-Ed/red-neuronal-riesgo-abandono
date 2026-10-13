@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: red-neuronal-riesgo-abandono
+    runtime: python
+    plan: starter
+    numInstances: 1
+    healthCheckPath: /health
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: gunicorn app:app --config gunicorn.conf.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.11
+      - key: MODEL_STORAGE_DIR
+        value: /var/data/model
+      - key: MAX_UPLOAD_MB
+        value: "2"
+      - key: MAX_BATCH_ROWS
+        value: "500"
+      - key: FEEDBACK_TOKEN
+        sync: false
+    disk:
+      name: model-storage
+      mountPath: /var/data
+      sizeGB: 1

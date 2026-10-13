@@ -13,11 +13,11 @@ from sklearn.preprocessing import StandardScaler
 
 from src.config import (
     DATASET_FILE,
-    ENCODERS_FILE,
+    INITIAL_ENCODERS_FILE,
+    INITIAL_MODEL_FILE,
+    INITIAL_SCALER_FILE,
     MODELS_DIR,
-    MODEL_FILE,
     RANDOM_STATE,
-    SCALER_FILE,
     TARGET,
 )
 from src.data.prepare import load_and_encode_data
@@ -51,8 +51,8 @@ def main() -> None:
 
     # Guardar artefactos de preprocesamiento
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    joblib.dump(escalador, SCALER_FILE)
-    joblib.dump(encoder, ENCODERS_FILE)
+    joblib.dump(escalador, INITIAL_SCALER_FILE)
+    joblib.dump(encoder, INITIAL_ENCODERS_FILE)
 
     print(f"\n===== DATOS NORMALIZADOS (primeras 3 filas) =====")
     print(X_train[:3])
@@ -88,7 +88,7 @@ def main() -> None:
         verbose=1,
     )
 
-    modelo.save(MODEL_FILE)
+    modelo.save(INITIAL_MODEL_FILE)
 
     # Guardar el historial de entrenamiento como JSON para la web
     history_path = MODELS_DIR / "training_history.json"
@@ -169,9 +169,9 @@ def main() -> None:
     )
 
     print(f"\nArtefactos guardados correctamente:")
-    print(f"- Modelo: {MODEL_FILE}")
-    print(f"- Escalador: {SCALER_FILE}")
-    print(f"- Encoders: {ENCODERS_FILE}")
+    print(f"- Modelo: {INITIAL_MODEL_FILE}")
+    print(f"- Escalador: {INITIAL_SCALER_FILE}")
+    print(f"- Encoders: {INITIAL_ENCODERS_FILE}")
     print(f"- Historial: {history_path}")
 
 

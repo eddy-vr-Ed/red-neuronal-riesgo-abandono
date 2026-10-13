@@ -26,6 +26,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const asistenciaInput = document.getElementById('asistencia_semanal');
     const promedioInput = document.getElementById('promedio');
     const reprobadasInput = document.getElementById('materias_reprobadas');
+    const feedbackForm = document.getElementById('feedback-form');
+    const feedbackLabel = document.getElementById('feedback-label');
+    const feedbackToken = document.getElementById('feedback-token');
+    const feedbackSubmit = document.getElementById('btn-feedback-submit');
+    const feedbackMessage = document.getElementById('feedback-message');
 
     // Elementos de la tarjeta de resultados
     const statusCard = document.getElementById('status-card');
@@ -36,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const probAltoText = document.getElementById('prob-alto-text');
     const barBajo = document.getElementById('bar-bajo');
     const barAlto = document.getElementById('bar-alto');
+    let ultimoPayloadPredicho = null;
 
     // Modal de curvas de aprendizaje
     const btnGraficas = document.getElementById('btn-graficas');
@@ -186,6 +192,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            ultimoPayloadPredicho = payloadEstudiante;
+            if (feedbackSubmit) {
+                feedbackSubmit.disabled = false;
+            }
+            if (feedbackMessage) {
+                feedbackMessage.classList.add('hidden');
+                feedbackMessage.textContent = '';
+            }
+
             // ACTUALIZACIÓN DE LA INTERFAZ CON EL RESULTADO DE LA RED
             riesgoLabel.textContent = `RIESGO ${resultado.riesgo}`;
             probBajoText.textContent = resultado.probabilidad_bajo;
@@ -230,6 +245,83 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    if (feedbackForm) {
+        feedbackForm.addEventListener('submit', async (evento) => {
+            evento.preventDefault();
+
+            if (!ultimoPayloadPredicho) {
+                mostrarMensajeFeedback('Ejecuta primero una predicción individual válida.');
+                return;
+            }
+
+            const etiquetaReal = feedbackLabel ? feedbackLabel.value : '';
+            const token = feedbackToken ? feedbackToken.value.trim() : '';
+
+            if (!['0', '1'].includes(etiquetaReal)) {
+                mostrarMensajeFeedback('Selecciona la etiqueta real: BAJO (0) o ALTO (1).');
+                return;
+            }
+            if (!token) {
+                mostrarMensajeFeedback('Introduce el token autorizado para retroalimentar.');
+                return;
+            }
+
+            const payloadFeedback = {
+                ...ultimoPayloadPredicho,
+                etiqueta_real: Number(etiquetaReal)
+            };
+
+            feedbackSubmit.disabled = true;
+
+            try {
+                const respuesta = await fetch('/retroalimentar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Feedback-Token': token
+                    },
+                    body: JSON.stringify(payloadFeedback)
+                });
+
+                const resultado = await respuesta.json();
+                if (!respuesta.ok) {
+                    mostrarMensajeFeedback(resultado.error || 'No se pudo aplicar la retroalimentación.');
+                    return;
+                }
+
+                const pesosAntes = Array.isArray(resultado.pesos_antes) ? resultado.pesos_antes.join(', ') : '--';
+                const pesosDespues = Array.isArray(resultado.pesos_despues) ? resultado.pesos_despues.join(', ') : '--';
+                mostrarMensajeFeedback(`Entrenamiento aplicado. Loss: ${resultado.loss}. Antes: [${pesosAntes}] Después: [${pesosDespues}]`);
+
+                if (Array.isArray(resultado.pesos_despues)) {
+                    const chipsVal = document.querySelectorAll('.chip-val');
+                    resultado.pesos_despues.forEach((peso, index) => {
+                        if (chipsVal[index]) {
+                            chipsVal[index].textContent = Number(peso).toFixed(4);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error("Error en retroalimentación:", error);
+                mostrarMensajeFeedback('No se pudo conectar con el servidor para retroalimentar.');
+            } finally {
+                feedbackSubmit.disabled = false;
+                if (feedbackToken) {
+                    feedbackToken.value = '';
+                }
+            }
+        });
+    }
+
+    function mostrarMensajeFeedback(mensaje) {
+        if (!feedbackMessage) {
+            alert(mensaje);
+            return;
+        }
+        feedbackMessage.textContent = mensaje;
+        feedbackMessage.classList.remove('hidden');
+    }
+
     // =========================================================================
     // 4. CONTROL DE PESTAÑAS (CONSULTA INDIVIDUAL VS ANÁLISIS POR LOTES)
     // =========================================================================
@@ -266,6 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const batchSpinner = document.getElementById('batch-spinner');
     const batchResults = document.getElementById('batch-results');
     const batchErrorMessage = document.getElementById('batch-error-message');
+    const btnDownloadReport = document.getElementById('btn-download-report');
 
     let archivoSeleccionado = null;
 
@@ -374,6 +467,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function mostrarResultadosLote(data) {
         batchResults.classList.remove('hidden');
+        if (btnDownloadReport && data.download_url) {
+            btnDownloadReport.href = data.download_url;
+        }
 
         // Tarjetas de Resumen KPI
         document.getElementById('rep-total').textContent = data.total_alumnos;

@@ -6,6 +6,7 @@ import pandas as pd
 from tensorflow import keras
 
 from src.config import ENCODERS_FILE, MODEL_FILE, SCALER_FILE
+from src.model.storage import initialize_model_storage
 from src.prediction.preprocessing import preparar_matriz_modelo
 
 
@@ -46,6 +47,7 @@ def predecir_estudiante(modelo, escalador, encoder, datos_estudiante: pd.DataFra
 
 
 def main() -> None:
+    initialize_model_storage()
     modelo = keras.models.load_model(MODEL_FILE)
     escalador = joblib.load(SCALER_FILE)
     encoder = joblib.load(ENCODERS_FILE)

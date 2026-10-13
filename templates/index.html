@@ -20,7 +20,7 @@
             <div class="brand-info">
                 <div class="brand-title-row">
                     <h1 class="brand-title">REDES NEURONALES</h1>
-                    <span class="version-badge">v2.0 PROD</span>
+                    <span class="version-badge">v2.0 DEMO</span>
                 </div>
                 <p class="brand-subtitle">Clasificación de Riesgo de Abandono Escolar · Modelo MLP Multicapa</p>
             </div>
@@ -201,7 +201,7 @@
                         <div class="metric-info-row">
                             <div class="metric-label-group">
                                 <span class="metric-dot dot-bajo"></span>
-                                <span class="metric-name">Riesgo Bajo (Aprobación)</span>
+                                <span class="metric-name">Riesgo Bajo (Permanencia estimada)</span>
                             </div>
                             <span class="metric-val" id="prob-bajo-text">--%</span>
                         </div>
@@ -215,7 +215,7 @@
                         <div class="metric-info-row">
                             <div class="metric-label-group">
                                 <span class="metric-dot dot-alto"></span>
-                                <span class="metric-name">Riesgo Alto (Abandono Inminente)</span>
+                                <span class="metric-name">Riesgo Alto (Abandono estimado)</span>
                             </div>
                             <span class="metric-val" id="prob-alto-text">--%</span>
                         </div>
@@ -257,6 +257,22 @@
                             <div class="weight-chip"><span class="chip-label">W₂</span> <code class="chip-val">--</code></div>
                             <div class="weight-chip"><span class="chip-label">W₃</span> <code class="chip-val">--</code></div>
                             <div class="weight-chip"><span class="chip-label">W₄</span> <code class="chip-val">--</code></div>
+                        </div>
+
+                        <div class="active-learning-block" id="feedback-panel">
+                            <form id="feedback-form" class="feedback-form">
+                                <label class="feedback-heading" for="feedback-label">Retroalimentación autorizada</label>
+                                <select id="feedback-label" class="input-select feedback-control" required>
+                                    <option value="" disabled selected>Etiqueta real...</option>
+                                    <option value="0">BAJO (0)</option>
+                                    <option value="1">ALTO (1)</option>
+                                </select>
+                                <input type="password" id="feedback-token" class="input-text feedback-control" autocomplete="off" placeholder="Token de retroalimentación" required>
+                                <button type="submit" class="btn-fb btn-fb-confirm" id="btn-feedback-submit" disabled>
+                                    Enviar retroalimentación
+                                </button>
+                            </form>
+                            <div class="learning-feedback-msg hidden" id="feedback-message" role="status"></div>
                         </div>
                     </div>
 
@@ -308,8 +324,8 @@
         <main class="batch-workspace hidden" id="view-lotes">
             <div class="batch-top-banner">
                 <div class="batch-intro">
-                    <h2>Auditoría y Diagnóstico Institucional por Lotes</h2>
-                    <p>Suba las listas completas de alumnos por cuatrimestre para generar el dictamen institucional automático.</p>
+                    <h2>Diagnóstico Académico Demostrativo por Lotes</h2>
+                    <p>Suba listas de alumnos por cuatrimestre para generar una clasificación académica demostrativa.</p>
                 </div>
                 <div class="batch-quick-tools">
                     <a href="/descargar_plantilla" class="btn-secondary-action" download>

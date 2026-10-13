@@ -1,8 +1,6 @@
-"""Configuración central del proyecto de predicción de riesgo de abandono.
+"""Configuración central del proyecto de predicción de riesgo de abandono."""
 
-Versión 2.0 — Modelo específico por grado y grupo.
-"""
-
+import os
 from pathlib import Path
 
 # Raíz del repositorio.
@@ -20,10 +18,23 @@ HORARIOS_DETALLE = RAW_DATA_DIR / "horarios_detalle.csv"
 # Dataset generado a partir de los horarios reales.
 DATASET_FILE = RAW_DATA_DIR / "estudiantes_por_grado.csv"
 
-# Artefactos del modelo.
-MODEL_FILE = MODELS_DIR / "modelo_riesgo.keras"
-SCALER_FILE = MODELS_DIR / "escalador.pkl"
-ENCODERS_FILE = MODELS_DIR / "encoders.pkl"
+# Artefactos iniciales versionados en el repositorio.
+INITIAL_MODEL_FILE = MODELS_DIR / "modelo_riesgo.keras"
+INITIAL_SCALER_FILE = MODELS_DIR / "escalador.pkl"
+INITIAL_ENCODERS_FILE = MODELS_DIR / "encoders.pkl"
+
+# Artefactos activos usados por la app. En producción debe apuntar a un disco
+# persistente para conservar el aprendizaje posterior a cada retroalimentación.
+MODEL_STORAGE_DIR = Path(
+    os.environ.get("MODEL_STORAGE_DIR", MODELS_DIR / "runtime")
+).expanduser().resolve()
+MODEL_FILE = MODEL_STORAGE_DIR / "modelo_riesgo.keras"
+SCALER_FILE = MODEL_STORAGE_DIR / "escalador.pkl"
+ENCODERS_FILE = MODEL_STORAGE_DIR / "encoders.pkl"
+
+# Límites de demostración para evitar cargas accidentales grandes.
+MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "2"))
+MAX_BATCH_ROWS = int(os.environ.get("MAX_BATCH_ROWS", "100"))
 
 # Columnas categóricas que se codifican con One-Hot Encoding.
 CATEGORICAL_COLS = ["grado", "grupo", "especialidad"]
